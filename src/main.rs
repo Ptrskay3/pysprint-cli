@@ -64,34 +64,25 @@
 //     Ok(())
 // }
 
-fn read_yaml(file: &str) -> Result<serde_yaml::Value, Box<dyn std::error::Error>> {
-    let f = std::fs::File::open(file)?;
-    Ok(serde_yaml::from_reader(f)?)
-}
+use tempfile::tempdir;
+use std::fs::File;
+use std::io::{self, Write};
+use std::io::prelude::*;
 
-fn main() {
-    let a = read_yaml("example/eval.yaml").unwrap();
-    for feature in a["load_options"].as_sequence().iter() {
-        for (i, entities) in feature.iter().enumerate() {
-            let load_option: serde_yaml::Value = serde_yaml::to_value(entities).unwrap();
-            match load_option {
-                // serde_yaml::Value::String(o) => println!("string {:?}", o),
-                serde_yaml::Value::Mapping(option) => {
-                    for op in option.iter() {
-                        match op {
-                            (serde_yaml::Value::String(key), serde_yaml::Value::Number(val)) => println!("k:{:?}, v:{:?}", key, val),
-                            (serde_yaml::Value::String(key), serde_yaml::Value::String(val)) => println!("k:{:?}, v:{:?}", key, val),
-                            _ => panic!("yaml contains values that are unknown in this context: {:?}", op),
-                        }
-                    }
-                }
-                _ => {},
-            }
-            // println!("{:?}", load_option);
-        }
-    }
-    // }
-    // println!("{:?}", b);
-    // let featues = &a["featues"];
-    // println!("{:?}", a["featues"]);
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+
+
+    // Create a directory inside of `std::env::temp_dir()`.
+    let dir = tempdir()?;
+    let filename = "URES";
+    let file_path = dir.path().join(format!("{}.py", filename));
+    let mut file = File::create(file_path)?;
+    writeln!(file, "Brian was here. Briefly.")?;
+
+    // By closing the `TempDir` explicitly, we can check that it has
+    // been deleted successfully. If we don't close it explicitly,
+    // the directory will still be deleted when `dir` goes out
+    // of scope, but we won't know whether deleting the directory
+    // succeeded
+    Ok(())
 }
