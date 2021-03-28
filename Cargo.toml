@@ -1,0 +1,12 @@
+[package]
+name = "pysprint-cli"
+version = "0.1.0"
+authors = ["Leeh Peter <leeh123peter@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+clap = {version = "2.33.3", features = [ "suggestions", "color" ]}
+pyo3 = "*"
+notify = "5.0.0-pre.6"
+serde = "1.0"
+serde_yaml = "0.8"

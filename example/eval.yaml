@@ -1,0 +1,59 @@
+load_options:
+  - skiprows: 8
+  - decimal: ","
+  - delimiter: ";"
+  - meta_len: 6
+  - mod: 3
+# features:
+#   - "autofft"
+#   - "parallel"
+#   - "AVANTES_4638"
+
+# on_start:
+#   - python --version
+#   - "pysprint.print_info()"
+#   - m
+# after_start:
+#   - "fdsafds"
+
+# before_load:
+#   - "dsadsa"
+
+# method:
+#   - "mm"
+#   - "fft"
+#   - "wft"
+#   - "spp"
+#   - "cff"
+
+# load:
+#   - patterns: "*.trt"
+#   - skip: "FileToSkip.txt"
+#   - mod: 3
+#   - files:
+#       - "a.txt"
+#       - "b.txt"
+
+# after_load:
+#   - "dsadsadsa"
+
+# before_preprocess:
+#   - "dsadsa"
+
+# preprocess:
+#   - input_unit: "nm"
+#   - chdomain: true
+#   - slice_start: 2
+#   - slice_end: 4
+#   - "custom_things"
+
+# after_preprocess:
+#   - "dsadsa"
+
+# before_evaluate:
+#   - "dsadsa"
+
+# evaluate:
+#   - only_phase: true
+#   - reference: 2.355
+#   - order: 5
