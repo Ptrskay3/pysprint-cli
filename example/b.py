@@ -1,1 +1,1 @@
-[a for a in range(100)]
+a = ps.Dataset(range(10), range(10))

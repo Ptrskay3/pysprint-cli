@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use pyo3::prelude::*;
+use pyo3::{py_run, prelude::*, PyErr};
 use pyo3::types::IntoPyDict;
 use std::path::Path;
 
@@ -35,11 +35,12 @@ fn exec_py(content: &str) -> PyResult<()> {
     let gil = Python::acquire_gil();
     let py = gil.python();
     let globals = [("ps", py.import("pysprint")?)].into_py_dict(py);
-    // run a test if it works
-    // println!("{:?}", ps.get("__version__")?);
-    // let globals = PyDict::new(py);
-    let _result = py.eval(content, None, Some(&globals));
-    println!("{:?}", _result);
+    let result = py.run(content, None, Some(&globals));
+    match result {
+        Err(ref err) => {println!("{:?}", err);}
+        _ => {},
+    }
+    // println!("{:?}", result);
     Ok(())
 }
 
