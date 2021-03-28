@@ -1,0 +1,7 @@
+import pysprint as ps
+
+ifg = ps.{{ methodname }}.parse_raw(
+    "{{ filename }}",
+    "{{ % if filename2 %}} "{{ filename2 }}", {{ % endif % }}
+    "{{ % if filename3 %}} "{{ filename3 }}", {{ % endif % }}
+)
