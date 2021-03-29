@@ -1,5 +1,3 @@
-import pysprint as ps
-
 ifg = ps.{{ methodname }}.parse_raw(
     "{{ filename }}",
    {%- if filename2 %} "{{ filename2 }}", {% endif %}
@@ -15,9 +13,12 @@ SKIP_IF = ("ref", "sam", "reference", "sample")
 for entry in SKIP_IF:
     if entry in ifg.meta:
         import sys
+        print("szar")
         sys.exit(1)
 
-{%- if chdomain %} ifg.chdomain() {% endif %}
-{%- if slice_start and slice_stop %} ifg.slice({{ slice_start }}, {{ slice_stop }}){% endif %}
-{%- if slice_start and not slice_stop %} ifg.slice(start={{ slice_start }}){% endif %}
-{%- if not slice_start and slice_stop %} ifg.slice(stop={{ slice_stop }}){% endif %}
+{% if chdomain -%} ifg.chdomain() {%- endif %}
+
+{% if slice_start and slice_stop -%} ifg.slice({{ slice_start }}, {{ slice_stop }}){%- endif %}
+{%- if slice_start and not slice_stop -%} ifg.slice(start={{ slice_start }}){%- endif %}
+{%- if not slice_start and slice_stop -%} ifg.slice(stop={{ slice_stop }}){%- endif %}
+print(ifg)

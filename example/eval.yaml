@@ -4,27 +4,30 @@ load_options:
   - delimiter: ";"
   - meta_len: 6
   - mod: 3
+  # TODO: skip: [pattern*.trt]
 # features:
 #   - "autofft"
 #   - "parallel"
 #   - "AVANTES_4638"
 
-# on_start:
+# TODO
+# run scripts if needed..
+# on_load:
 #   - python --version
 #   - "pysprint.print_info()"
-#   - m
-# after_start:
-#   - "fdsafds"
 
-# before_load:
-#   - "dsadsa"
+# preprocess:
+#   - chdomain: true
+#   - slice_start: 2
+#   - slice_end: 4
 
 # method:
-#   - "mm"
-#   - "fft"
-#   - "wft"
-#   - "spp"
-#   - "cff"
+#   - fft
+
+# evaluate:
+#   - reference_frequency: 2.355
+#   - order: 5
+#   - save_phase: true
 
 # load:
 #   - patterns: "*.trt"

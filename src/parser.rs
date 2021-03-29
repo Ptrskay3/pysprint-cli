@@ -4,8 +4,7 @@ fn read_yaml(file: &str) -> Result<serde_yaml::Value, Box<dyn std::error::Error>
 }
 use std::collections::HashMap;
 
-
-fn parse(file: &str) -> (HashMap<String, Box<f64>>, HashMap<String, String>) {
+pub fn parse(file: &str) -> (HashMap<String, Box<f64>>, HashMap<String, String>) {
     let yaml_file = read_yaml(file).unwrap();
 
     // options that can be represented as a number
@@ -22,16 +21,20 @@ fn parse(file: &str) -> (HashMap<String, Box<f64>>, HashMap<String, String>) {
                     for option in options.iter() {
                         match option {
                             (serde_yaml::Value::String(key), serde_yaml::Value::Number(val)) => {
-                                number_options.insert(key.to_string(), Box::new(val.as_f64().unwrap()));
-                            },
+                                number_options
+                                    .insert(key.to_string(), Box::new(val.as_f64().unwrap()));
+                            }
                             (serde_yaml::Value::String(key), serde_yaml::Value::String(val)) => {
                                 text_options.insert(key.to_string(), val.to_string());
-                            },
-                            _ => panic!("yaml contains values that are unknown in this context: {:?}", option),
+                            }
+                            _ => panic!(
+                                "yaml contains values that are unknown in this context: {:?}",
+                                option
+                            ),
                         }
                     }
                 }
-                _ => {},
+                _ => {}
             }
         }
     }

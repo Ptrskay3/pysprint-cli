@@ -1,2 +1,0 @@
-print("dsa")
-print("dasda")
