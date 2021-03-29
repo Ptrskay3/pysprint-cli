@@ -39,26 +39,28 @@ pub fn render_template(
     after_evaluate_triggers: &Vec<String>,
 ) -> Result<std::string::String, tera::Error> {
     let mut context = Context::new();
-    // TODO: read these from the current config
+
+    // numerics
+    for (key, entry) in number_options {
+        context.insert(key, &entry);
+    }
+
+    // Specials
     context.insert("methodname", "WFTMethod");
     context.insert("filename", &format!("{}/{}", path, file));
-    context.insert("skiprows", &number_options["skiprows"]);
+    context.insert("detach", &false);
+
+    // textual
     context.insert("decimal", &text_options["decimal"]);
     context.insert("delimiter", &text_options["delimiter"]);
-    context.insert("meta_len", &number_options["meta_len"]);
-    context.insert("chdomain", &bool_options["chdomain"]); // TODO
-    context.insert("detach", &false);
+
+    // boolean
+    context.insert("chdomain", &bool_options["chdomain"]);
+    
+    // other
     context.insert("before_evaluate_triggers", &before_evaluate_triggers);
     context.insert("after_evaluate_triggers", &after_evaluate_triggers);
-    // context.insert("slice_start", &number_options["slice_start"]);
-    // context.insert("slice_stop", &number_options["slice_stop"]);
 
-    // evaluate
-    context.insert(
-        "reference_frequency",
-        &number_options["reference_frequency"],
-    );
-    context.insert("order", &number_options["order"]);
     // render to the tempfile
     TEMPLATES.render("boilerplate.py_t", &context)
 

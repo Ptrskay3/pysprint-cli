@@ -13,7 +13,7 @@ fn main() {
         .setting(AppSettings::ColoredHelp)
         .version("0.28.0")
         .author("Péter Leéh")
-        .help("Powerful watching engine for interferogram evaluation")
+        .help("PySprint watching engine for interferogram evaluation")
         .arg(
             Arg::with_name("path")
                 .short("p")
@@ -28,14 +28,24 @@ fn main() {
                 .short("c")
                 .long("config")
                 .value_name("CONFIG")
-                .help("The config file to use")
+                .help("the config file to use")
                 .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("persist")
+            .long("persist")
+            .value_name("PERSIST")
+            .help("persist the evaluation files")
+            .takes_value(false)
         )
         .get_matches();
 
     if let Some(filepath) = matches.value_of("path") {
-        println!("PySprint watch mode active..");
+        println!("PySprint watch mode active. Start recording/changing files..");
         let config_file = matches.value_of("config").unwrap_or("eval.yaml"); // TODO
+        if matches.is_present("persist") {
+            unimplemented!();
+        }
         if let Err(e) = watch(filepath, config_file) {
             println!("error watching..: {:?}", e)
         }
@@ -88,6 +98,8 @@ fn watch<P: AsRef<Path> + Copy>(path: P, config_file: &str) -> notify::Result<()
                         print!("\x1B[2J\x1B[1;1H");
 
                         if value.to_str() == Some("trt") {
+                            // TODO: filter files to skip
+
                             // render the code that needs to run
                             let code = render_template(
                                 &event.paths[0].file_name().unwrap().to_str().unwrap(),

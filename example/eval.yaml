@@ -3,8 +3,8 @@ load_options:
   - decimal: ","
   - delimiter: ";"
   - meta_len: 6
-  - mod: 3
-  # TODO: skip: [pattern*.trt]
+  # TODO: mod: 3
+  # TODO: exclude_patterns
 
 preprocess:
   - input_unit: "nm"
@@ -16,12 +16,12 @@ method:
   - fft
 
 # before_evaluate:
+#   - "print(ifg)"
 #   - "import numpy as np"
 #   - "print(np.__version__)"
 
 evaluate:
   - reference_frequency: 2.355
   - order: 3
-
 # after_evaluate:
 #   - "print('we are done with this..')"
