@@ -101,7 +101,7 @@ fn watch<P: AsRef<Path> + Copy>(path: P, config_file: &str, persist: bool) -> no
                                     // clear terminal on rerun
                                     print!("\x1B[2J\x1B[1;1H");
                                     // stdout is frequently line-buffered by default so it is necessary
-                                    // to flush() to ensure the output is emitted immediately
+                                    // to flush() to ensure the clear above is emitted immediately
                                     io::stdout().flush().unwrap();
 
                                     // render the code that needs to be executed
@@ -115,11 +115,12 @@ fn watch<P: AsRef<Path> + Copy>(path: P, config_file: &str, persist: bool) -> no
                                         &after_evaluate_triggers,
                                     );
 
-                                    // write to file the code if needed
+                                    // write to file the generated code if needed
                                     if persist {
                                         let _ = write_tempfile(
                                             &e.file_stem().unwrap().to_str().unwrap(),
                                             code.as_ref().unwrap(),
+                                            fpath,
                                         );
                                     }
 

@@ -23,6 +23,5 @@ method:
 evaluate:
   - reference_frequency: 2.355
   - order: 3
-
 # after_evaluate:
 #   - "print('we are done with this..')"
