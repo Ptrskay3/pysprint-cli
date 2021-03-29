@@ -5,58 +5,23 @@ load_options:
   - meta_len: 6
   - mod: 3
   # TODO: skip: [pattern*.trt]
-# features:
-#   - "autofft"
-#   - "parallel"
-#   - "AVANTES_4638"
 
-# TODO
-# run scripts if needed..
-# on_load:
-#   - python --version
-#   - "pysprint.print_info()"
+preprocess:
+  - input_unit: "nm"
+  - chdomain: true
+  # - slice_start: 2
+  # - slice_stop: 4
 
-# preprocess:
-#   - chdomain: true
-#   - slice_start: 2
-#   - slice_end: 4
-
-# method:
-#   - fft
-
-# evaluate:
-#   - reference_frequency: 2.355
-#   - order: 5
-#   - save_phase: true
-
-# load:
-#   - patterns: "*.trt"
-#   - skip: "FileToSkip.txt"
-#   - mod: 3
-#   - files:
-#       - "a.txt"
-#       - "b.txt"
-
-# after_load:
-#   - "dsadsadsa"
-
-# before_preprocess:
-#   - "dsadsa"
-
-# preprocess:
-#   - input_unit: "nm"
-#   - chdomain: true
-#   - slice_start: 2
-#   - slice_end: 4
-#   - "custom_things"
-
-# after_preprocess:
-#   - "dsadsa"
+method:
+  - fft
 
 # before_evaluate:
-#   - "dsadsa"
+#   - "import numpy as np"
+#   - "print(np.__version__)"
 
-# evaluate:
-#   - only_phase: true
-#   - reference: 2.355
-#   - order: 5
+evaluate:
+  - reference_frequency: 2.355
+  - order: 3
+
+# after_evaluate:
+#   - "print('we are done with this..')"

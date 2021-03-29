@@ -64,12 +64,18 @@ fn watch<P: AsRef<Path> + Copy>(path: P, config_file: &str) -> notify::Result<()
 
     // we need to append the filepath to the template, because python also runs from *here*.
     let fpath = &path.as_ref().to_str().unwrap();
-    let (numeric_config, string_config) = parse(&format!("{}/{}", fpath, config_file));
+    let (
+        numeric_config,
+        string_config,
+        boolean_config,
+        before_evaluate_triggers,
+        after_evaluate_triggers,
+    ) = parse(&format!("{}/{}", fpath, config_file));
 
     for res in rx {
         match res {
             Ok(event) => {
-                // get the extension, we need to see if we care about it
+                // get the extension, we need to see whether we care
                 let ext = &event.paths[0].extension();
 
                 // stdout is frequently line-buffered by default so it is necessary
@@ -88,6 +94,9 @@ fn watch<P: AsRef<Path> + Copy>(path: P, config_file: &str) -> notify::Result<()
                                 fpath,
                                 &string_config,
                                 &numeric_config,
+                                &boolean_config,
+                                &before_evaluate_triggers,
+                                &after_evaluate_triggers,
                             );
 
                             // execute it
