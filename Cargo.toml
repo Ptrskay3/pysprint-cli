@@ -6,8 +6,10 @@ edition = "2018"
 
 [dependencies]
 clap = {version = "2.33.3", features = [ "suggestions", "color" ]}
-pyo3 = "*"
+pyo3 = "0.13"
 notify = "5.0.0-pre.6"
 serde = "1.0"
 serde_yaml = "0.8"
 tempfile = "3.2.0"
+tera = "1.7.0"
+lazy_static = "1.4"
