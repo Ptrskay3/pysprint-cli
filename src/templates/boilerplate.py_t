@@ -21,4 +21,9 @@ for entry in SKIP_IF:
 {% if slice_start and slice_stop -%} ifg.slice({{ slice_start }}, {{ slice_stop }}){%- endif %}
 {%- if slice_start and not slice_stop -%} ifg.slice(start={{ slice_start }}){%- endif %}
 {%- if not slice_start and slice_stop -%} ifg.slice(stop={{ slice_stop }}){%- endif %}
-print(ifg)
+
+{%if detach %}
+with ps.interactive("TkAgg"):
+    ifg.plot()
+    ifg.show()
+{% endif %}

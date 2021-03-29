@@ -14,27 +14,23 @@ pub fn parse(file: &str) -> (HashMap<String, Box<f64>>, HashMap<String, String>)
 
     // parsing the "load_options section"
     for feature in yaml_file["load_options"].as_sequence().iter() {
-        for (i, entities) in feature.iter().enumerate() {
+        for (_, entities) in feature.iter().enumerate() {
             let load_option: serde_yaml::Value = serde_yaml::to_value(entities).unwrap();
-            match load_option {
-                serde_yaml::Value::Mapping(options) => {
-                    for option in options.iter() {
-                        match option {
-                            (serde_yaml::Value::String(key), serde_yaml::Value::Number(val)) => {
-                                number_options
-                                    .insert(key.to_string(), Box::new(val.as_f64().unwrap()));
-                            }
-                            (serde_yaml::Value::String(key), serde_yaml::Value::String(val)) => {
-                                text_options.insert(key.to_string(), val.to_string());
-                            }
-                            _ => panic!(
-                                "yaml contains values that are unknown in this context: {:?}",
-                                option
-                            ),
+            if let serde_yaml::Value::Mapping(options) = load_option {
+                for option in options.iter() {
+                    match option {
+                        (serde_yaml::Value::String(key), serde_yaml::Value::Number(val)) => {
+                            number_options.insert(key.to_string(), Box::new(val.as_f64().unwrap()));
                         }
+                        (serde_yaml::Value::String(key), serde_yaml::Value::String(val)) => {
+                            text_options.insert(key.to_string(), val.to_string());
+                        }
+                        _ => panic!(
+                            "yaml contains values that are unknown in this context: {:?}",
+                            option
+                        ),
                     }
                 }
-                _ => {}
             }
         }
     }

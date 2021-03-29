@@ -1,9 +1,8 @@
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::io::Write;
-use tempfile::{Builder, NamedTempFile};
+use tempfile::Builder;
 use tera::{Context, Tera};
-use std::path::Path;
 
 lazy_static! {
     pub static ref TEMPLATES: Tera = {
@@ -17,7 +16,6 @@ lazy_static! {
         tera
     };
 }
-
 
 pub fn write_tempfile(name: &str, persist: bool, content: &str) -> std::io::Result<()> {
     let mut tempfile = Builder::new().tempfile_in("./example")?;
@@ -33,24 +31,25 @@ pub fn write_tempfile(name: &str, persist: bool, content: &str) -> std::io::Resu
 
 pub fn render_template(
     file: &str,
+    path: &str,
     text_options: &HashMap<String, String>,
     number_options: &HashMap<String, Box<f64>>,
 ) -> Result<std::string::String, tera::Error> {
     let mut context = Context::new();
     // TODO: read these from the current config
     context.insert("methodname", "FFTMethod");
-    context.insert("filename", &format!("{}/{}", "./example", file));
+    context.insert("filename", &format!("{}/{}", path, file));
     context.insert("skiprows", &number_options["skiprows"]);
     context.insert("decimal", &text_options["decimal"]);
     context.insert("delimiter", &text_options["delimiter"]);
     context.insert("meta_len", &number_options["meta_len"]);
     context.insert("chdomain", &true);
+    context.insert("detach", &false);
     // context.insert("slice_start", &2.0);
     // context.insert("slice_stop", &4.0);
     // render to the tempfile
-    let result = TEMPLATES.render("boilerplate.py_t", &context);
+    TEMPLATES.render("boilerplate.py_t", &context)
 
     // TODO: change test to filename
     // write_tempfile(file, true, &result.unwrap());
-    result
 }
