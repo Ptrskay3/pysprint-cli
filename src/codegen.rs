@@ -17,14 +17,11 @@ lazy_static! {
     };
 }
 
-pub fn write_tempfile(name: &str, persist: bool, content: &str) -> std::io::Result<()> {
-    let mut tempfile = Builder::new().tempfile_in("./example")?;
-    if persist {
-        let mut _file = tempfile.persist(format!("./example/{}_pstemp.py", name))?;
-        writeln!(_file, "{}", content)?;
-    } else {
-        writeln!(tempfile, "{}", content)?;
-    }
+pub fn write_tempfile(name: &str, content: &str) -> std::io::Result<()> {
+    let tempfile = Builder::new().tempfile_in("./example")?;
+
+    let mut _file = tempfile.persist(format!("./example/{}_pstemp.py", name))?;
+    writeln!(_file, "{}", content)?;
 
     Ok(())
 }
@@ -35,8 +32,8 @@ pub fn render_template(
     text_options: &HashMap<String, String>,
     number_options: &HashMap<String, Box<f64>>,
     bool_options: &HashMap<String, Box<bool>>,
-    before_evaluate_triggers: &Vec<String>,
-    after_evaluate_triggers: &Vec<String>,
+    before_evaluate_triggers: &[String],
+    after_evaluate_triggers: &[String],
 ) -> Result<std::string::String, tera::Error> {
     let mut context = Context::new();
 
@@ -56,14 +53,11 @@ pub fn render_template(
 
     // boolean
     context.insert("chdomain", &bool_options["chdomain"]);
-    
+
     // other
     context.insert("before_evaluate_triggers", &before_evaluate_triggers);
     context.insert("after_evaluate_triggers", &after_evaluate_triggers);
 
-    // render to the tempfile
+    // render as String
     TEMPLATES.render("boilerplate.py_t", &context)
-
-    // TODO: change test to filename
-    // write_tempfile(file, true, &result.unwrap());
 }

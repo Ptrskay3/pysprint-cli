@@ -35,7 +35,7 @@ with ps.interactive("TkAgg"):
 {% if methodname == "FFTMethod" %}
 ifg.autorun({{ reference_frequency }}, {{ order }}, show_graph=False, enable_printing=False)
 {% elif methodname == "WFTMethod" %}
-ifg.cover(100, fwhm=0.05)
+ifg.cover(200, fwhm=0.05)
 ifg.calculate({{ reference_frequency }}, {{ order }}, parallel=True, fastmath=False)
 {% else %}
 print("not implemented yet")

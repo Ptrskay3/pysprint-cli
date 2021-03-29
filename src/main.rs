@@ -1,11 +1,15 @@
 use clap::{App, AppSettings, Arg};
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
-use pysprint_cli::{codegen::render_template, parser::parse};
+use pysprint_cli::{
+    codegen::{render_template, write_tempfile},
+    parser::parse,
+};
 use std::io;
 use std::io::Write;
 use std::path::Path;
+use std::time::Duration;
 
 fn main() {
     let matches = App::new("PySprint-CLI")
@@ -33,20 +37,17 @@ fn main() {
         )
         .arg(
             Arg::with_name("persist")
-            .long("persist")
-            .value_name("PERSIST")
-            .help("persist the evaluation files")
-            .takes_value(false)
+                .long("persist")
+                .value_name("PERSIST")
+                .help("persist the evaluation files")
+                .takes_value(false),
         )
         .get_matches();
 
     if let Some(filepath) = matches.value_of("path") {
         println!("PySprint watch mode active. Start recording/changing files..");
-        let config_file = matches.value_of("config").unwrap_or("eval.yaml"); // TODO
-        if matches.is_present("persist") {
-            unimplemented!();
-        }
-        if let Err(e) = watch(filepath, config_file) {
+        let config_file = matches.value_of("config").unwrap_or("eval.yaml");
+        if let Err(e) = watch(filepath, config_file, matches.is_present("persist")) {
             println!("error watching..: {:?}", e)
         }
     }
@@ -66,10 +67,11 @@ fn exec_py(content: &str) -> PyResult<()> {
     Ok(())
 }
 
-fn watch<P: AsRef<Path> + Copy>(path: P, config_file: &str) -> notify::Result<()> {
+fn watch<P: AsRef<Path> + Copy>(path: P, config_file: &str, persist: bool) -> notify::Result<()> {
     let (tx, rx) = std::sync::mpsc::channel();
 
-    let mut watcher: RecommendedWatcher = Watcher::new_immediate(move |res| tx.send(res).unwrap())?;
+    let mut watcher = watcher(tx, Duration::from_millis(200)).unwrap();
+    // let mut watcher: RecommendedWatcher = Watcher::new_immediate(move |res| tx.send(res).unwrap())?;
     watcher.watch(path, RecursiveMode::NonRecursive)?;
 
     // we need to append the filepath to the template, because python also runs from *here*.
@@ -82,45 +84,57 @@ fn watch<P: AsRef<Path> + Copy>(path: P, config_file: &str) -> notify::Result<()
         after_evaluate_triggers,
     ) = parse(&format!("{}/{}", fpath, config_file));
 
-    for res in rx {
-        match res {
+    loop {
+        match rx.recv() {
             Ok(event) => {
-                // get the extension, we need to see whether we care
-                let ext = &event.paths[0].extension();
+                match event {
+                    // only trigger on Write and Create events..
+                    DebouncedEvent::Write(e) | DebouncedEvent::Create(e) => {
+                        // get the extension, we need to see whether we care
+                        let ext = &e.extension();
 
-                // stdout is frequently line-buffered by default so it is necessary
-                // to flush() to ensure the output is emitted immediately
-                io::stdout().flush().unwrap();
+                        match ext {
+                            Some(value) => {
+                                if value.to_str() == Some("trt") {
+                                    // TODO: filter files to skip
 
-                match ext {
-                    Some(value) => {
-                        // "clear" terminal
-                        print!("\x1B[2J\x1B[1;1H");
+                                    // clear terminal on rerun
+                                    print!("\x1B[2J\x1B[1;1H");
+                                    // stdout is frequently line-buffered by default so it is necessary
+                                    // to flush() to ensure the output is emitted immediately
+                                    io::stdout().flush().unwrap();
 
-                        if value.to_str() == Some("trt") {
-                            // TODO: filter files to skip
+                                    // render the code that needs to be executed
+                                    let code = render_template(
+                                        &e.file_name().unwrap().to_str().unwrap(),
+                                        fpath,
+                                        &string_config,
+                                        &numeric_config,
+                                        &boolean_config,
+                                        &before_evaluate_triggers,
+                                        &after_evaluate_triggers,
+                                    );
 
-                            // render the code that needs to run
-                            let code = render_template(
-                                &event.paths[0].file_name().unwrap().to_str().unwrap(),
-                                fpath,
-                                &string_config,
-                                &numeric_config,
-                                &boolean_config,
-                                &before_evaluate_triggers,
-                                &after_evaluate_triggers,
-                            );
+                                    // write to file the code if needed
+                                    if persist {
+                                        let _ = write_tempfile(
+                                            &e.file_stem().unwrap().to_str().unwrap(),
+                                            code.as_ref().unwrap(),
+                                        );
+                                    }
 
-                            // execute it
-                            let _ = exec_py(&code.unwrap());
+                                    // execute it
+                                    let _ = exec_py(&code.unwrap());
+                                }
+                            }
+                            None => {} // if there's no extension, we probably should do nothing
                         }
                     }
-                    None => {} // some unknown event.. we need to debounce this later on
+                    _ => {}
                 }
             }
 
             Err(e) => println!("watch error: {:?}", e),
         }
     }
-    Ok(())
 }
