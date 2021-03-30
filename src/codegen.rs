@@ -9,7 +9,7 @@ lazy_static! {
         let mut tera = Tera::default();
         tera.add_raw_template(
             "boilerplate.py_t",
-r#"ifg = ps.{{ methodname }}.parse_raw(
+            r#"ifg = ps.{{ methodname }}.parse_raw(
     "{{ filename }}",
 {%- if filename2 %} "{{ filename2 }}", {% endif %}
 {%- if filename3 %} "{{ filename3 }}", {% endif %}

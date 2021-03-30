@@ -1,4 +1,5 @@
 use clap::{App, AppSettings, Arg};
+use ctrlc;
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
@@ -61,8 +62,10 @@ fn exec_py(content: &str) -> PyResult<()> {
     let locals = [("ps", py.import("pysprint")?)].into_py_dict(py);
     let result = py.run(content, None, Some(&locals));
     // print Python errors only, stay quiet when Ok(())
+    ctrlc::set_handler(|| std::process::exit(130)).unwrap();
     if let Err(ref err) = result {
         println!("Python error:\n{:?}", err);
+        let _ = py.check_signals()?;
     }
     Ok(())
 }
