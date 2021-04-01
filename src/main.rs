@@ -3,13 +3,15 @@ use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
 use pysprint_cli::{
-    codegen::{render_template, write_tempfile},
+    codegen::{default_yaml_if_needed, render_template, write_tempfile},
     parser::parse,
 };
+use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::path::Path;
 use std::time::Duration;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 fn main() {
     let matches = App::new("PySprint-CLI")
@@ -18,50 +20,106 @@ fn main() {
         .version("0.28.0")
         .author("Péter Leéh")
         .help("PySprint watching engine for interferogram evaluation")
-        .subcommand(SubCommand::with_name("watch")
-        .arg(
-            Arg::with_name("path")
-                .short("p")
-                .long("path")
-                .value_name("FILE")
-                .help("set up the filepath to watch")
-                .takes_value(true)
-                .required(true),
+        .subcommand(
+            SubCommand::with_name("watch")
+                .arg(
+                    Arg::with_name("path")
+                        .short("p")
+                        .long("path")
+                        .value_name("FILE")
+                        .help("set up the filepath to watch")
+                        .takes_value(true)
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("config")
+                        .short("c")
+                        .long("config")
+                        .value_name("CONFIG")
+                        .help("the config file to use")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("result")
+                        .short("r")
+                        .long("result")
+                        .value_name("RESULT")
+                        .help("the file to write results")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("persist")
+                        .long("persist")
+                        .value_name("PERSIST")
+                        .help("persist the evaluation files")
+                        .takes_value(false),
+                ),
         )
-        .arg(
-            Arg::with_name("config")
-                .short("c")
-                .long("config")
-                .value_name("CONFIG")
-                .help("the config file to use")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("persist")
-                .long("persist")
-                .value_name("PERSIST")
-                .help("persist the evaluation files")
-                .takes_value(false),
-        ))
+        .subcommand(SubCommand::with_name("audit"))
         .get_matches();
+
+    if matches.subcommand_matches("audit").is_some() {
+        todo!();
+    }
 
     if let Some(matches) = matches.subcommand_matches("watch") {
         if let Some(filepath) = matches.value_of("path") {
-            println!("PySprint watch mode active. Start recording/changing files..");
+            println!("[INFO] PySprint watch mode starting.");
             let config_file = matches.value_of("config").unwrap_or("eval.yaml");
-            if let Err(e) = watch(filepath, config_file, matches.is_present("persist")) {
-                println!("error watching..: {:?}", e)
+            let config_filepath = Path::new(&filepath).join(config_file);
+            if !config_filepath.exists() {
+                default_yaml_if_needed(&filepath);
+            }
+            let result_file = matches.value_of("result").unwrap_or("results.json");
+            let result_filepath = Path::new(&filepath).join(result_file);
+            if !result_file_is_present(&result_filepath).unwrap_or(true) {
+                create_results_file(&result_filepath.into_os_string().to_str().unwrap()).unwrap();
+            }
+            println!("[INFO] Watch started..");
+            if let Err(e) = watch(
+                filepath,
+                config_file,
+                matches.is_present("persist"),
+                result_file,
+            ) {
+                println!("[ERRO] error watching..: {:?}", e)
             }
         }
     }
+}
 
+fn result_file_is_present<P: AsRef<Path>>(
+    result_filepath: P,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    if result_filepath.as_ref().exists() {
+        let mut stdout = StandardStream::stdout(ColorChoice::Always);
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+        let warning = format!(
+            "[WARN] The result file named {:?} already exists. Its contents might be overwritten.",
+            result_filepath.as_ref()
+        );
+        writeln!(&mut stdout, "{}", warning)?;
+        let _ = WriteColor::reset(&mut stdout);
+        Ok(true)
+    } else {
+        println!("[INFO] Created {:?} result file.", result_filepath.as_ref().file_name().unwrap());
+        Ok(false)
+    }
+}
+
+fn create_results_file(filename: &str) -> std::io::Result<()> {
+    let mut file = File::create(filename)?;
+    file.write_all(b"{ }")?;
+    Ok(())
 }
 
 fn exec_py(content: &str) -> PyResult<()> {
     // start a python interpreter
     let gil = Python::acquire_gil();
     let py = gil.python();
-    // with pysprint imported already
+
+    // with the required packages imported already
     let locals = [
         ("np", py.import("numpy")?),
         ("ps", py.import("pysprint")?),
@@ -69,19 +127,25 @@ fn exec_py(content: &str) -> PyResult<()> {
     ]
     .into_py_dict(py);
     let result = py.run(content, None, Some(&locals));
+
     // print Python errors only, stay quiet when Ok(())
     if let Err(ref err) = result {
-        println!("Python error:\n{:?}", err);
+        let py_error = format!("[ERRO] Python error:\n{:?}", err);
+        println!("{}", py_error);
         let _ = py.check_signals()?;
     }
     Ok(())
 }
 
-fn watch<P: AsRef<Path> + Copy>(path: P, config_file: &str, persist: bool) -> notify::Result<()> {
+fn watch<P: AsRef<Path> + Copy>(
+    path: P,
+    config_file: &str,
+    persist: bool,
+    result_file: &str,
+) -> notify::Result<()> {
     let (tx, rx) = std::sync::mpsc::channel();
 
-    let mut watcher = watcher(tx, Duration::from_millis(200)).unwrap();
-    // let mut watcher: RecommendedWatcher = Watcher::new_immediate(move |res| tx.send(res).unwrap())?;
+    let mut watcher = watcher(tx, Duration::from_millis(100)).unwrap();
     watcher.watch(path, RecursiveMode::NonRecursive)?;
 
     // we need to append the filepath to the template, because python also runs from *here*.
@@ -123,9 +187,10 @@ fn watch<P: AsRef<Path> + Copy>(path: P, config_file: &str, persist: bool) -> no
                                         &boolean_config,
                                         &before_evaluate_triggers,
                                         &after_evaluate_triggers,
+                                        &result_file,
                                     );
 
-                                    // write to file the generated code if needed
+                                    // write the generated code if needed
                                     if persist {
                                         let _ = write_tempfile(
                                             &e.file_stem().unwrap().to_str().unwrap(),
@@ -141,7 +206,7 @@ fn watch<P: AsRef<Path> + Copy>(path: P, config_file: &str, persist: bool) -> no
                             None => {} // if there's no extension, we probably should do nothing
                         }
                     }
-                    _ => {}
+                    _ => {} // there is something wrong with the event, probably we also should skip
                 }
             }
 

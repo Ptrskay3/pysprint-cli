@@ -14,32 +14,37 @@ load_options:
   - meta_len: 6
 
 preprocess:
+  - input_unit: "nm"
   - chdomain: true
   - slice_start: 2
+  - slice_stop: 4
 
 method:
   - fft
 
 before_evaluate:
-  - "print(ifg)"
+  - "print('you can interact with the program through this hook')"
 
 evaluate:
   - reference_frequency: 2.355
   - order: 3
 
 after_evaluate:
-  - "print('we are done with this..')"
+  - "print('and also here at this point')"
 ```
 
 To start watching a directory, run:
 
 ```shell
-pysprint-cli --path your/path/here
+pysprint watch your/path/here
 ```
 
 Optionally generated files can be saved with the `--persist` flag.
 
 ### TODO!
+
+- termcolor --> color by severity
+- implement audit
 
 - implement method switch
 - custom build steps

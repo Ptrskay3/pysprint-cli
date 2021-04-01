@@ -3,25 +3,22 @@ load_options:
   - decimal: ","
   - delimiter: ";"
   - meta_len: 6
-  # TODO: mod: 3
-  # TODO: exclude_patterns
 
 preprocess:
   - input_unit: "nm"
   - chdomain: true
-  # - slice_start: 2
-  # - slice_stop: 4
+  - slice_start: 2
+  - slice_stop: 4
 
 method:
   - fft
 
-# before_evaluate:
-#   - "print(ifg)"
-#   - "import numpy as np"
-#   - "print(np.__version__)"
+before_evaluate:
+  - "print('you can interact with the program through this hook')"
 
 evaluate:
   - reference_frequency: 2.355
   - order: 3
-# after_evaluate:
-#   - "print('we are done with this..')"
+
+after_evaluate:
+  - "print('and also here at this point')"

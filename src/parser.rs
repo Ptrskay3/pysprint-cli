@@ -1,8 +1,22 @@
+use std::collections::HashMap;
+
+// // TODO
+// pub struct EvaluateOptions {
+//     numeric: HashMap<String, Box<f64>>,
+//     textual: HashMap<String, String>,
+//     boolean: HashMap<String, Box<bool>>
+// }
+
+// // TODO
+// pub struct IntermediateHooks {
+//     before_evaulate_triggers: Vec<String>,
+//     after_evaulate_triggers: Vec<String>
+// }
+
 fn read_yaml(file: &str) -> Result<serde_yaml::Value, Box<dyn std::error::Error>> {
     let f = std::fs::File::open(file)?;
     Ok(serde_yaml::from_reader(f)?)
 }
-use std::collections::HashMap;
 
 pub fn parse(
     file: &str,
@@ -68,6 +82,23 @@ pub fn parse(
         for command in commands.iter() {
             if let serde_yaml::Value::String(cmd) = command {
                 after_evaluate_triggers.push(cmd.to_string());
+            }
+        }
+    }
+
+    // getting the method section
+    for commands in yaml_file["method"].as_sequence().iter() {
+        for command in commands.iter() {
+            if let serde_yaml::Value::String(cmd) = command {
+                match cmd.to_string().as_str() {
+                    "fft" => {
+                        text_options.insert(String::from("methodname"), String::from("FFTMethod"))
+                    }
+                    "wft" => {
+                        text_options.insert(String::from("methodname"), String::from("WFTMethod"))
+                    }
+                    _ => panic!("method named {:?} is not implemented", cmd),
+                };
             }
         }
     }

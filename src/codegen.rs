@@ -1,14 +1,17 @@
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io;
 use std::io::Write;
+use std::path::PathBuf;
 use tempfile::Builder;
 use tera::{Context, Tera};
 
 lazy_static! {
     pub static ref TEMPLATES: Tera = {
         let mut tera = Tera::default();
-        tera.add_raw_template(
-            "boilerplate.py_t",
+        let _ = tera.add_raw_template(
+            "pstemplate.py_t",
             r#"ifg = ps.{{ methodname }}.parse_raw(
     "{{ filename }}",
 {%- if filename2 %} "{{ filename2 }}", {% endif %}
@@ -32,6 +35,9 @@ for entry in SKIP_IF:
 {%- if slice_start and not slice_stop -%} ifg.slice(start={{ slice_start }}){%- endif %}
 {%- if not slice_start and slice_stop -%} ifg.slice(stop={{ slice_stop }}){%- endif %}
 
+x_before_transform = np.copy(ifg.x)
+y_before_transform = np.copy(ifg.y_norm)
+
 {%if detach %}
 with ps.interactive("TkAgg"):
     ifg.plot()
@@ -47,10 +53,13 @@ with ps.interactive("TkAgg"):
 ifg.autorun({{ reference_frequency }}, {{ order }}, show_graph=False, enable_printing=False)
 {% elif methodname == "WFTMethod" %}
 ifg.cover(200, fwhm=0.05)
-ifg.calculate({{ reference_frequency }}, {{ order }}, parallel=True, fastmath=False)
+ifg.calculate({{ reference_frequency }}, {{ order }}, parallel=False, fastmath=False)
 {% else %}
 print("not implemented yet")
 {% endif %}
+
+fragment = ps.utils._prepare_json_fragment(ifg, "{{ filename_raw }}", x_before_transform, y_before_transform)
+ps.utils._write_or_update_json_fragment("{{ workdir }}/{{ result_file }}", fragment, "{{ filename_raw }}")
 
 {% for cmd in after_evaluate_triggers %}
 {{ cmd }}
@@ -77,6 +86,7 @@ pub fn render_template(
     bool_options: &HashMap<String, Box<bool>>,
     before_evaluate_triggers: &[String],
     after_evaluate_triggers: &[String],
+    result_file: &str,
 ) -> Result<std::string::String, tera::Error> {
     let mut context = Context::new();
 
@@ -93,7 +103,9 @@ pub fn render_template(
     }
 
     // Specials
-    context.insert("methodname", "FFTMethod");
+    context.insert("result_file", result_file);
+    context.insert("filename_raw", &file);
+    context.insert("workdir", &path);
     context.insert("filename", &format!("{}/{}", path, file));
     context.insert("detach", &false);
 
@@ -102,5 +114,64 @@ pub fn render_template(
     context.insert("after_evaluate_triggers", &after_evaluate_triggers);
 
     // render as String
-    TEMPLATES.render("boilerplate.py_t", &context)
+    TEMPLATES.render("pstemplate.py_t", &context)
+}
+
+fn write_default_yaml(path: &str) -> std::io::Result<()> {
+    let cfg_path = PathBuf::from(path).join("eval.yaml");
+    std::fs::write(
+        cfg_path,
+        r#"load_options:
+  - skiprows: 8
+  - decimal: ","
+  - delimiter: ";"
+  - meta_len: 6
+
+preprocess:
+  - input_unit: "nm"
+  - chdomain: true
+  - slice_start: 2
+  - slice_stop: 4
+
+method:
+  - fft
+
+before_evaluate:
+  - "print('you can interact with the program through this hook')"
+
+evaluate:
+  - reference_frequency: 2.355
+  - order: 3
+
+after_evaluate:
+  - "print('and also here at this point')"
+"#
+        .as_bytes(),
+    );
+    Ok(())
+}
+
+pub fn default_yaml_if_needed(path: &str) {
+    println!(
+        "[INFO] No `eval.yaml` file was detected in the target path. 
+       If you named it something different, use the `-c` option.
+       Type 'y' or 'yes' if you want to generate a default one, or anything else to quit."
+    );
+    loop {
+        let mut input_text = String::new();
+        io::stdin()
+            .read_line(&mut input_text)
+            .expect("failed to read from stdin");
+
+        match input_text.to_lowercase().trim() {
+            "yes" | "y" => {
+                let r = write_default_yaml(path);
+                println!("[INFO] Created `eval.yaml` config file.");
+                break;
+            }
+            _ => {
+                break;
+            }
+        };
+    }
 }
