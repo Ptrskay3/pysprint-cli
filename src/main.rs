@@ -1,5 +1,4 @@
-use clap::{App, AppSettings, Arg};
-use ctrlc;
+use clap::{App, AppSettings, Arg, SubCommand};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
@@ -19,6 +18,7 @@ fn main() {
         .version("0.28.0")
         .author("Péter Leéh")
         .help("PySprint watching engine for interferogram evaluation")
+        .subcommand(SubCommand::with_name("watch")
         .arg(
             Arg::with_name("path")
                 .short("p")
@@ -42,16 +42,19 @@ fn main() {
                 .value_name("PERSIST")
                 .help("persist the evaluation files")
                 .takes_value(false),
-        )
+        ))
         .get_matches();
 
-    if let Some(filepath) = matches.value_of("path") {
-        println!("PySprint watch mode active. Start recording/changing files..");
-        let config_file = matches.value_of("config").unwrap_or("eval.yaml");
-        if let Err(e) = watch(filepath, config_file, matches.is_present("persist")) {
-            println!("error watching..: {:?}", e)
+    if let Some(matches) = matches.subcommand_matches("watch") {
+        if let Some(filepath) = matches.value_of("path") {
+            println!("PySprint watch mode active. Start recording/changing files..");
+            let config_file = matches.value_of("config").unwrap_or("eval.yaml");
+            if let Err(e) = watch(filepath, config_file, matches.is_present("persist")) {
+                println!("error watching..: {:?}", e)
+            }
         }
     }
+
 }
 
 fn exec_py(content: &str) -> PyResult<()> {
@@ -59,10 +62,14 @@ fn exec_py(content: &str) -> PyResult<()> {
     let gil = Python::acquire_gil();
     let py = gil.python();
     // with pysprint imported already
-    let locals = [("ps", py.import("pysprint")?)].into_py_dict(py);
+    let locals = [
+        ("np", py.import("numpy")?),
+        ("ps", py.import("pysprint")?),
+        ("plt", py.import("matplotlib.pyplot")?),
+    ]
+    .into_py_dict(py);
     let result = py.run(content, None, Some(&locals));
     // print Python errors only, stay quiet when Ok(())
-    ctrlc::set_handler(|| std::process::exit(130)).unwrap();
     if let Err(ref err) = result {
         println!("Python error:\n{:?}", err);
         let _ = py.check_signals()?;
