@@ -1,8 +1,16 @@
 [package]
 name = "pysprint-cli"
 version = "0.1.0"
+license = "MIT OR Apache-2.0"
+description = "A CLI tool for the Python package PySprint"
+readme = "README.md"
 authors = ["Leeh Peter <leeh123peter@gmail.com>"]
 edition = "2018"
+keywords = ["cli", "python"]
+homepage = "https://github.com/Ptrskay3/pysprint-cli"
+repository = "https://github.com/Ptrskay3/pysprint-cli"
+categories = ["command-line-utilities"]
+
 
 [dependencies]
 clap = {version = "2.33.3", features = [ "suggestions", "color" ]}
@@ -15,6 +23,8 @@ tera = "1.7.0"
 lazy_static = "1.4"
 ctrlc = "3.1"
 termcolor = "1.1.2"
+wildmatch = "2.0.0"
+# indicatif = "0.15.0"
 
 [profile.dev]
 opt-level = 0

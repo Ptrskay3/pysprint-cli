@@ -13,6 +13,13 @@ use std::collections::HashMap;
 //     after_evaulate_triggers: Vec<String>
 // }
 
+#[derive(Debug)]
+pub struct FilePatternOptions {
+    pub exclude_patterns: Vec<String>,
+    pub skip_files: Vec<String>,
+    pub extensions: Vec<String>,
+}
+
 fn read_yaml(file: &str) -> Result<serde_yaml::Value, Box<dyn std::error::Error>> {
     let f = std::fs::File::open(file)?;
     Ok(serde_yaml::from_reader(f)?)
@@ -26,6 +33,7 @@ pub fn parse(
     HashMap<String, Box<bool>>,
     Vec<String>,
     Vec<String>,
+    FilePatternOptions,
 ) {
     let yaml_file = read_yaml(file).unwrap();
 
@@ -39,6 +47,10 @@ pub fn parse(
     let mut before_evaulate_triggers: Vec<String> = Vec::new();
     // trigger after evaluate
     let mut after_evaluate_triggers: Vec<String> = Vec::new();
+    // options that fit in a vector
+    let mut exclude_patterns: Vec<String> = Vec::new();
+    let mut skip_files: Vec<String> = Vec::new();
+    let mut extensions: Vec<String> = Vec::new();
 
     // parsing the standard sections
     for section in vec!["load_options", "preprocess", "evaluate"].iter() {
@@ -57,6 +69,47 @@ pub fn parse(
                             }
                             (serde_yaml::Value::String(key), serde_yaml::Value::Bool(val)) => {
                                 bool_options.insert(key.to_string(), Box::new(*val));
+                            }
+                            (serde_yaml::Value::String(key), serde_yaml::Value::Sequence(seq)) => {
+                                match key.as_str() {
+                                    "exclude_patterns" => {
+                                        seq.iter()
+                                            .filter_map(|d| match d {
+                                                serde_yaml::Value::String(string) => {
+                                                    Some(string.to_owned())
+                                                }
+                                                _ => None,
+                                            })
+                                            .collect::<Vec<String>>()
+                                            .as_slice()
+                                            .clone_into(&mut exclude_patterns);
+                                    }
+                                    "skip" => {
+                                        seq.iter()
+                                            .filter_map(|d| match d {
+                                                serde_yaml::Value::String(string) => {
+                                                    Some(string.to_owned())
+                                                }
+                                                _ => None,
+                                            })
+                                            .collect::<Vec<String>>()
+                                            .as_slice()
+                                            .clone_into(&mut skip_files);
+                                    }
+                                    "extensions" => {
+                                        seq.iter()
+                                            .filter_map(|d| match d {
+                                                serde_yaml::Value::String(string) => {
+                                                    Some(string.to_owned())
+                                                }
+                                                _ => None,
+                                            })
+                                            .collect::<Vec<String>>()
+                                            .as_slice()
+                                            .clone_into(&mut extensions);
+                                    }
+                                    _ => {}
+                                }
                             }
                             _ => panic!(
                                 "yaml contains values that are unknown in this context: {:?}",
@@ -142,5 +195,10 @@ pub fn parse(
         bool_options,
         before_evaulate_triggers,
         after_evaluate_triggers,
+        FilePatternOptions {
+            exclude_patterns,
+            skip_files,
+            extensions,
+        },
     )
 }

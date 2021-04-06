@@ -3,6 +3,7 @@ use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
 use pysprint_cli::{
+    audit::get_files,
     codegen::{maybe_write_default_yaml, render_template, write_tempfile},
     parser::parse,
 };
@@ -12,12 +13,14 @@ use std::io::Write;
 use std::path::Path;
 use std::time::Duration;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+// use indicatif::ProgressBar;
 
 fn main() {
+    let mut stdout = StandardStream::stdout(ColorChoice::Always);
     let matches = App::new("PySprint-CLI")
         .setting(AppSettings::ColorAlways)
         .setting(AppSettings::ColoredHelp)
-        .version("0.28.0")
+        .version("0.29.0")
         .author("Péter Leéh")
         .help("PySprint watching engine for interferogram evaluation")
         .subcommand(
@@ -66,17 +69,17 @@ fn main() {
         .subcommand(SubCommand::with_name("audit"))
         .get_matches();
 
-    if matches.subcommand_matches("audit").is_some() {
-        todo!();
+    if let Some(_) = matches.subcommand_matches("audit") {
+        audit();
     }
 
     if let Some(matches) = matches.subcommand_matches("watch") {
         let verbosity: u8 = match matches.occurrences_of("verbosity") {
-                0 => 0,
-                1 | _ => 1,
-        };        
+            0 => 0,
+            1 | _ => 1,
+        };
         if let Some(filepath) = matches.value_of("path") {
-            println!("[INFO] PySprint watch mode starting.");
+            writeln!(stdout, "[INFO] PySprint watch mode starting.");
             let config_file = matches.value_of("config").unwrap_or("eval.yaml");
             let config_filepath = Path::new(&filepath).join(config_file);
             if !config_filepath.exists() {
@@ -84,11 +87,11 @@ fn main() {
             }
             let result_file = matches.value_of("result").unwrap_or("results.json");
             let result_filepath = Path::new(&filepath).join(result_file);
-            if !result_file_is_present(&result_filepath).unwrap_or(true) {
+            if !result_file_is_present(&result_filepath, &mut stdout).unwrap_or(true) {
                 create_results_file(&result_filepath.into_os_string().to_str().unwrap()).unwrap();
             }
-            
-            println!("[INFO] Watch started..");
+
+            writeln!(stdout, "[INFO] Watch started..");
 
             if let Err(e) = watch(
                 filepath,
@@ -96,8 +99,9 @@ fn main() {
                 matches.is_present("persist"),
                 result_file,
                 verbosity,
+                &mut stdout,
             ) {
-                println!("[ERRO] error watching..: {:?}", e)
+                writeln!(stdout, "[ERROR] error watching..: {:?}", e);
             }
         }
     }
@@ -105,19 +109,20 @@ fn main() {
 
 fn result_file_is_present<P: AsRef<Path>>(
     result_filepath: P,
+    stdout: &mut StandardStream,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     if result_filepath.as_ref().exists() {
-        let mut stdout = StandardStream::stdout(ColorChoice::Always);
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
         let warning = format!(
             "[WARN] The result file named {:?} already exists. Its contents might be overwritten.",
             result_filepath.as_ref()
         );
-        writeln!(&mut stdout, "{}", warning)?;
-        let _ = WriteColor::reset(&mut stdout);
+        writeln!(stdout, "{}", warning)?;
+        let _ = WriteColor::reset(stdout);
         Ok(true)
     } else {
-        println!(
+        writeln!(
+            stdout,
             "[INFO] Created {:?} result file.",
             result_filepath.as_ref().file_name().unwrap()
         );
@@ -131,7 +136,7 @@ fn create_results_file(filename: &str) -> std::io::Result<()> {
     Ok(())
 }
 
-fn exec_py(content: &str) -> PyResult<()> {
+fn exec_py(content: &str, stdout: &mut StandardStream) -> PyResult<()> {
     // start a python interpreter
     let gil = Python::acquire_gil();
     let py = gil.python();
@@ -143,15 +148,22 @@ fn exec_py(content: &str) -> PyResult<()> {
         ("plt", py.import("matplotlib.pyplot")?),
     ]
     .into_py_dict(py);
+
     let result = py.run(content, None, Some(&locals));
 
     // print Python errors only, stay quiet when Ok(())
     if let Err(ref err) = result {
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
         let py_error = format!("[ERRO] Python error:\n{:?}", err);
-        println!("{}", py_error);
+        writeln!(stdout, "{}", py_error);
         let _ = py.check_signals()?;
+        let _ = WriteColor::reset(stdout);
     }
     Ok(())
+}
+
+fn audit() {
+    todo!();
 }
 
 fn watch<P: AsRef<Path> + Copy>(
@@ -160,6 +172,7 @@ fn watch<P: AsRef<Path> + Copy>(
     persist: bool,
     result_file: &str,
     verbosity: u8,
+    stdout: &mut StandardStream,
 ) -> notify::Result<()> {
     let (tx, rx) = std::sync::mpsc::channel();
 
@@ -174,8 +187,8 @@ fn watch<P: AsRef<Path> + Copy>(
         boolean_config,
         before_evaluate_triggers,
         after_evaluate_triggers,
+        file_pattern_options,
     ) = parse(&format!("{}/{}", fpath, config_file));
-
     loop {
         match rx.recv() {
             Ok(event) => {
@@ -187,7 +200,10 @@ fn watch<P: AsRef<Path> + Copy>(
 
                         match ext {
                             Some(value) => {
-                                if value.to_str() == Some("trt") {
+                                if file_pattern_options
+                                    .extensions
+                                    .contains(&value.to_str().unwrap().to_owned())
+                                {
                                     // TODO: filter files to skip
 
                                     // clear terminal on rerun
@@ -219,7 +235,7 @@ fn watch<P: AsRef<Path> + Copy>(
                                     }
 
                                     // execute it
-                                    let _ = exec_py(&code.unwrap());
+                                    let _ = exec_py(&code.unwrap(), stdout);
                                 }
                             }
                             None => {} // if there's no extension, we probably should do nothing

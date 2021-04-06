@@ -49,11 +49,13 @@ Optionally generated files can be saved with the `--persist` (or `-p` for short)
 
 ### TODO!
 
+- TOP PRIORITY: refactor parser.rs, it is really messy
+
 - method options [partially ok]
 - detach [ok]
 - automock imports
-- termcolor --> color by severity
-- implement audit
+- termcolor --> color by severity [partially ok]
+- implement audit [working on it]
 
 - implement method switch [partially ok]
 - custom build steps

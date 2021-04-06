@@ -784,6 +784,7 @@ dependencies = [
  "tempfile",
  "tera",
  "termcolor",
+ "wildmatch",
 ]
 
 [[package]]
@@ -1145,6 +1146,12 @@ name = "wasi"
 version = "0.10.2+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd6fbd9a79829dd1ad0cc20627bf1ed606756a7f77edff7b66b7064f9cb327c6"
+
+[[package]]
+name = "wildmatch"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07ae7ce410f81ba679081aac1d4874f3b1c328535b630209aa5b4cdaaf895e20"
 
 [[package]]
 name = "winapi"

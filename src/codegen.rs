@@ -1,6 +1,5 @@
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::path::PathBuf;
@@ -61,7 +60,7 @@ ifg.cover(
     {%if not std and not fwhm %}fwhm=0.05{% endif %}
 )
 
-ifg.calculate({{ reference_frequency }}, {{ order }}, parallel=False, fastmath=False)
+ifg.calculate({{ reference_frequency }}, {{ order }}, parallel={% if parallel %}True{% else %}False{% endif %}, fastmath=False)
 {% elif methodname == "MinMaxMethod" %}
 ifg.init_edit_session(
     {% if min and max %}
@@ -94,7 +93,7 @@ ifg.heatmap()
 plt.show(block=True)
 {% endif %}
 
-fragment = ps.utils._prepare_json_fragment(ifg, "{{ filename_raw }}", x_before_transform, y_before_transform, verbosity={{verbosity}})
+fragment = ps.utils._prepare_json_fragment(ifg, "{{ filename_raw }}", x_before_transform, y_before_transform, verbosity={{ verbosity }})
 ps.utils._write_or_update_json_fragment("{{ workdir }}/{{ result_file }}", fragment, "{{ filename_raw }}")
 
 {% for cmd in after_evaluate_triggers %}
@@ -158,6 +157,15 @@ fn write_default_yaml(path: &str) -> std::io::Result<()> {
     std::fs::write(
         cfg_path,
         r#"load_options:
+  - extensions:
+      - "trt"
+      - "txt"
+  - exclude_patterns:
+      - "*_randomfile.trt"
+      - "*_to_skip.trt"
+  - skip:
+      - "filename.trt"
+      - "file_to_skip.trt"
   - skiprows: 8 # lines
   - decimal: ","
   - delimiter: ";"
@@ -188,6 +196,7 @@ method_details:
   # - windows: 200
   # - fwhm: 0.05 # PHz
   # - std: 0.05 # PHz
+  # - parallel
 
   # options for -- FFTMethod --
   # there is no option currently available
@@ -207,6 +216,7 @@ evaluate:
 
 after_evaluate:
   - "print('and after..')"
+
 "#
         .as_bytes(),
     );
@@ -227,7 +237,7 @@ pub fn maybe_write_default_yaml(path: &str) {
 
         match input_text.to_lowercase().trim() {
             "yes" | "y" => {
-                let r = write_default_yaml(path);
+                let _r = write_default_yaml(path);
                 println!("[INFO] Created `eval.yaml` config file.");
                 break;
             }
