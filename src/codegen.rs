@@ -16,18 +16,21 @@ lazy_static! {
     "{{ filename }}",
 {%- if filename2 %} "{{ filename2 }}", {% endif %}
 {%- if filename3 %} "{{ filename3 }}", {% endif %}
-{% if skiprows %} skiprows={{ skiprows }}, {%- else %} 0, {% endif %}
+{% if skiprows %} skiprows={{ skiprows }}, {%- else %} skiprows=0, {% endif %}
 {% if decimal %} decimal="{{ decimal }}", {%- else %} ".", {% endif %}
 {% if delimiter %} delimiter="{{ delimiter }}", {%- else %} ",", {% endif %}
-{% if meta_len %} meta_len={{ meta_len }} {%- else %} "0" {% endif %}
+{% if meta_len %} meta_len={{ meta_len }} {%- else %} meta_len=0 {% endif %}
 )
 
 SKIP_IF = ("ref", "sam", "reference", "sample", "noeval")
 
 for entry in SKIP_IF:
-    if entry in ifg.meta['comment']:
-        import sys
-        sys.exit("file skipped due to user comment")
+    try:
+        if entry in ifg.meta['comment']:
+            import sys
+            sys.exit("file skipped due to user comment")
+    except KeyError:
+        pass
 
 {% if chdomain -%} ifg.chdomain() {%- endif %}
 
@@ -39,9 +42,8 @@ x_before_transform = np.copy(ifg.x)
 y_before_transform = np.copy(ifg.y_norm)
 
 {%if detach %}
-with ps.interactive("TkAgg"):
-    ifg.plot()
-    ifg.show()
+ifg.plot()
+plt.show(block=True)
 {% endif %}
 
 
@@ -52,10 +54,44 @@ with ps.interactive("TkAgg"):
 {% if methodname == "FFTMethod" %}
 ifg.autorun({{ reference_frequency }}, {{ order }}, show_graph=False, enable_printing=False)
 {% elif methodname == "WFTMethod" %}
-ifg.cover(200, fwhm=0.05)
+ifg.cover(
+    {% if windows %}{{ windows }}{% else %}300{% endif %},
+    {% if fwhm and not std %}fwhm={{ fwhm }},{% endif %}
+    {% if std and not fwhm %}std={{ std }},{% endif %}
+    {%if not std and not fwhm %}fwhm=0.05{% endif %}
+)
+
 ifg.calculate({{ reference_frequency }}, {{ order }}, parallel=False, fastmath=False)
+{% elif methodname == "MinMaxMethod" %}
+ifg.init_edit_session(
+    {% if min and max %}
+    side="both"
+    {% elif min %}
+    side="min"
+    {% elif max %}
+    side="max"
+    {% else %}
+    side="both"
+    {% endif %}
+)
+plt.show(block=True)
+ifg.calculate({{ reference_frequency }}, {{ order }}, scan=True,
+    {% if min and max %}
+    onesided=False
+    {% elif min %}
+    onesided=True
+    {% elif max %}
+    onesided=True
+    {% else %}
+    onesided=False
+{% endif %})
 {% else %}
-print("not implemented yet")
+print("{{ methodname }} is not yet implemented..")
+{% endif %}
+
+{% if heatmap and methodname == "WFTMethod" %}
+ifg.heatmap()
+plt.show(block=True)
 {% endif %}
 
 fragment = ps.utils._prepare_json_fragment(ifg, "{{ filename_raw }}", x_before_transform, y_before_transform)
@@ -101,13 +137,11 @@ pub fn render_template(
     for (key, entry) in bool_options {
         context.insert(key, &entry);
     }
-
     // Specials
     context.insert("result_file", result_file);
     context.insert("filename_raw", &file);
     context.insert("workdir", &path);
     context.insert("filename", &format!("{}/{}", path, file));
-    context.insert("detach", &false);
 
     // other
     context.insert("before_evaluate_triggers", &before_evaluate_triggers);
@@ -122,36 +156,61 @@ fn write_default_yaml(path: &str) -> std::io::Result<()> {
     std::fs::write(
         cfg_path,
         r#"load_options:
-  - skiprows: 8
+  - skiprows: 8 # lines
   - decimal: ","
   - delimiter: ";"
-  - meta_len: 6
+  - meta_len: 6 # lines
 
 preprocess:
   - input_unit: "nm"
   - chdomain: true
-  - slice_start: 2
-  - slice_stop: 4
+  - slice_start: 2 # PHz
+  - slice_stop: 4 # PHz
 
 method:
-  - fft
+  - wft
+
+method_details:
+  # globally available options
+  # - auto
+  # - only_phase
+  # - detach
+
+  # options for -- MinMaxMethod --
+  # - min
+  # - max
+  # - both
+
+  # options for -- WFTMethod --
+  # - heatmap
+  # - windows: 200
+  # - fwhm: 0.05 # PHz
+  # - std: 0.05 # PHz
+
+  # options for -- FFTMethod --
+  # there is no option currently available
+
+  # options for -- CosFitMethod --
+  # not implemented yet
+
+  # options for -- SPPMethod --
+  # not implemented yet
 
 before_evaluate:
-  - "print('you can interact with the program through this hook')"
+  - "print('before_evaluate')"
 
 evaluate:
-  - reference_frequency: 2.355
-  - order: 3
+  - reference_frequency: 2.355 # PHz
+  - order: 3 # up to TOD
 
 after_evaluate:
-  - "print('and also here at this point')"
-"#
-        .as_bytes(),
+  - "print('and after..')"
+"#.as_bytes(),
     );
     Ok(())
 }
 
-pub fn default_yaml_if_needed(path: &str) {
+pub fn maybe_write_default_yaml(path: &str) {
     println!(
         "[INFO] No `eval.yaml` file was detected in the target path. 
        If you named it something different, use the `-c` option.

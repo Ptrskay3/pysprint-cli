@@ -97,8 +97,41 @@ pub fn parse(
                     "wft" => {
                         text_options.insert(String::from("methodname"), String::from("WFTMethod"))
                     }
+                    "mm" => text_options
+                        .insert(String::from("methodname"), String::from("MinMaxMethod")),
                     _ => panic!("method named {:?} is not implemented", cmd),
                 };
+            }
+        }
+    }
+
+    for commands in yaml_file["method_details"].as_sequence().iter() {
+        for command in commands.iter() {
+            match command {
+                serde_yaml::Value::String(cmd) => {
+                    bool_options.insert(cmd.to_string(), Box::new(true));
+                }
+                serde_yaml::Value::Mapping(options) => {
+                    for option in options.iter() {
+                        match option {
+                            (serde_yaml::Value::String(key), serde_yaml::Value::Number(val)) => {
+                                number_options
+                                    .insert(key.to_string(), Box::new(val.as_f64().unwrap()));
+                            }
+                            (serde_yaml::Value::String(key), serde_yaml::Value::String(val)) => {
+                                text_options.insert(key.to_string(), val.to_string());
+                            }
+                            (serde_yaml::Value::String(key), serde_yaml::Value::Bool(val)) => {
+                                bool_options.insert(key.to_string(), Box::new(*val));
+                            }
+                            _ => panic!(
+                                "yaml contains values that are unknown in this context: {:?}",
+                                option
+                            ),
+                        }
+                    }
+                }
+                _ => {}
             }
         }
     }

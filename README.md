@@ -8,45 +8,54 @@ First, set up an `eval.yaml` file where you will work. This defines the behaviou
 
 ```yml
 load_options:
-  - skiprows: 8
+  - skiprows: 8 # lines
   - decimal: ","
   - delimiter: ";"
-  - meta_len: 6
+  - meta_len: 6 # lines
 
 preprocess:
   - input_unit: "nm"
   - chdomain: true
-  - slice_start: 2
-  - slice_stop: 4
+  - slice_start: 2 # PHz
+  - slice_stop: 4 # PHz
 
 method:
-  - fft
+  - wft
+
+method_details:
+  - heatmap
+  - windows: 200 # number of windows
+  - fwhm: 0.05 # PHz
 
 before_evaluate:
-  - "print('you can interact with the program through this hook')"
+  - "print('this is a point where you can')"
+  - "print('interact with the program')"
 
 evaluate:
-  - reference_frequency: 2.355
-  - order: 3
+  - reference_frequency: 2.355 # PHz
+  - order: 3 # up to TOD
 
 after_evaluate:
-  - "print('and also here at this point')"
+  - "print('and also here, after evaluate..')"
 ```
 
 To start watching a directory, run:
 
 ```shell
-pysprint watch your/path/here
+pysprint-cli watch your/path/here
 ```
 
 Optionally generated files can be saved with the `--persist` flag.
 
 ### TODO!
 
+- method options [partially ok]
+- detach [ok]
+- automock imports
 - termcolor --> color by severity
 - implement audit
 
-- implement method switch
+- implement method switch [partially ok]
 - custom build steps
-- logging to a common result file
+- logging to a common result file [partially ok]
 - sort files by mod 3

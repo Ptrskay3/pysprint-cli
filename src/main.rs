@@ -3,7 +3,7 @@ use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
 use pysprint_cli::{
-    codegen::{default_yaml_if_needed, render_template, write_tempfile},
+    codegen::{maybe_write_default_yaml, render_template, write_tempfile},
     parser::parse,
 };
 use std::fs::File;
@@ -69,7 +69,7 @@ fn main() {
             let config_file = matches.value_of("config").unwrap_or("eval.yaml");
             let config_filepath = Path::new(&filepath).join(config_file);
             if !config_filepath.exists() {
-                default_yaml_if_needed(&filepath);
+                maybe_write_default_yaml(&filepath);
             }
             let result_file = matches.value_of("result").unwrap_or("results.json");
             let result_filepath = Path::new(&filepath).join(result_file);
@@ -103,7 +103,10 @@ fn result_file_is_present<P: AsRef<Path>>(
         let _ = WriteColor::reset(&mut stdout);
         Ok(true)
     } else {
-        println!("[INFO] Created {:?} result file.", result_filepath.as_ref().file_name().unwrap());
+        println!(
+            "[INFO] Created {:?} result file.",
+            result_filepath.as_ref().file_name().unwrap()
+        );
         Ok(false)
     }
 }
