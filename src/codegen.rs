@@ -94,7 +94,7 @@ ifg.heatmap()
 plt.show(block=True)
 {% endif %}
 
-fragment = ps.utils._prepare_json_fragment(ifg, "{{ filename_raw }}", x_before_transform, y_before_transform)
+fragment = ps.utils._prepare_json_fragment(ifg, "{{ filename_raw }}", x_before_transform, y_before_transform, verbosity={{verbosity}})
 ps.utils._write_or_update_json_fragment("{{ workdir }}/{{ result_file }}", fragment, "{{ filename_raw }}")
 
 {% for cmd in after_evaluate_triggers %}
@@ -123,6 +123,7 @@ pub fn render_template(
     before_evaluate_triggers: &[String],
     after_evaluate_triggers: &[String],
     result_file: &str,
+    verbosity: u8,
 ) -> Result<std::string::String, tera::Error> {
     let mut context = Context::new();
 
@@ -138,6 +139,7 @@ pub fn render_template(
         context.insert(key, &entry);
     }
     // Specials
+    context.insert("verbosity", &verbosity);
     context.insert("result_file", result_file);
     context.insert("filename_raw", &file);
     context.insert("workdir", &path);
@@ -205,7 +207,8 @@ evaluate:
 
 after_evaluate:
   - "print('and after..')"
-"#.as_bytes(),
+"#
+        .as_bytes(),
     );
     Ok(())
 }

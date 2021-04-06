@@ -54,6 +54,13 @@ fn main() {
                         .value_name("PERSIST")
                         .help("persist the evaluation files")
                         .takes_value(false),
+                )
+                .arg(
+                    Arg::with_name("verbosity")
+                        .short("v")
+                        .help("increase the verbosity level of results")
+                        .multiple(true)
+                        .takes_value(false),
                 ),
         )
         .subcommand(SubCommand::with_name("audit"))
@@ -64,6 +71,10 @@ fn main() {
     }
 
     if let Some(matches) = matches.subcommand_matches("watch") {
+        let verbosity: u8 = match matches.occurrences_of("verbosity") {
+                0 => 0,
+                1 | _ => 1,
+        };        
         if let Some(filepath) = matches.value_of("path") {
             println!("[INFO] PySprint watch mode starting.");
             let config_file = matches.value_of("config").unwrap_or("eval.yaml");
@@ -76,12 +87,15 @@ fn main() {
             if !result_file_is_present(&result_filepath).unwrap_or(true) {
                 create_results_file(&result_filepath.into_os_string().to_str().unwrap()).unwrap();
             }
+            
             println!("[INFO] Watch started..");
+
             if let Err(e) = watch(
                 filepath,
                 config_file,
                 matches.is_present("persist"),
                 result_file,
+                verbosity,
             ) {
                 println!("[ERRO] error watching..: {:?}", e)
             }
@@ -145,6 +159,7 @@ fn watch<P: AsRef<Path> + Copy>(
     config_file: &str,
     persist: bool,
     result_file: &str,
+    verbosity: u8,
 ) -> notify::Result<()> {
     let (tx, rx) = std::sync::mpsc::channel();
 
@@ -191,6 +206,7 @@ fn watch<P: AsRef<Path> + Copy>(
                                         &before_evaluate_triggers,
                                         &after_evaluate_triggers,
                                         &result_file,
+                                        verbosity,
                                     );
 
                                     // write the generated code if needed

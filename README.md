@@ -45,7 +45,7 @@ To start watching a directory, run:
 pysprint-cli watch your/path/here
 ```
 
-Optionally generated files can be saved with the `--persist` flag.
+Optionally generated files can be saved with the `--persist` (or `-p` for short) flag.
 
 ### TODO!
 

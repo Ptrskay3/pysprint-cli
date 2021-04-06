@@ -1,3 +1,5 @@
 [alias]
 rrr = ["run", "--release", "--", "watch", "./example"]
+rrrv = ["run", "--release", "--", "watch", "./example", "-v"]
 rrrp = ["run", "--release", "--", "watch", "./example", "--persist"]
+rrrpv = ["run", "--release", "--", "watch", "./example", "--persist", "-v"]
