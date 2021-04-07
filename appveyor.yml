@@ -34,6 +34,7 @@ install:
       } ElseIf ($env:TARGET -eq 'i686-pc-windows-gnu') {
         $env:PATH += ';C:\msys64\mingw32\bin'
       }
+  - PATH=%PATH%;C:\\Python37-x64 # set python 3 on path
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
   - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
