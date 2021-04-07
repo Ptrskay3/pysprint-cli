@@ -38,7 +38,7 @@ install:
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
   - rustc -Vv
   - cargo -V
-  - $env:PATH += ';C:\\Python37-x64' # set python 3 on path
+  - set PATH=%PATH%;C:\\Python37-x64 # set python 3 on path
 
 test_script:
   - if [%APPVEYOR_REPO_TAG%]==[false] (
