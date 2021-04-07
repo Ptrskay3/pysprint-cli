@@ -79,6 +79,8 @@ matrix:
 before_install:
   - set -e
   - rustup self update
+  - sudo apt-get update
+  - sudo apt-get install python3
 
 install:
   - sh ci/install.sh
