@@ -22,7 +22,6 @@ environment:
     - TARGET: x86_64-pc-windows-msvc
       RUST_VERSION: nightly
 
-
 install:
   - ps: >-
       If ($env:TARGET -eq 'x86_64-pc-windows-gnu') {
@@ -39,8 +38,7 @@ install:
 test_script:
   - if [%APPVEYOR_REPO_TAG%]==[false] (
     cargo build --target %TARGET% &&
-    cargo test --target %TARGET% &&
-    cargo run --target %TARGET%
+    cargo test --target %TARGET%
     )
 
 before_deploy:
