@@ -59,7 +59,11 @@ Optionally generated files can be saved with the `--persist` (or `-p` for short)
 
 ### TODO!
 
-- TOP PRIORITY: refactor parser.rs, it is really messy
+- TOP PRIORITY:
+
+  - refactor and clean up
+  - add field: disable printing from Python
+  - features for audit + cli integration
 
 - method options [partially ok]
 - detach [ok]

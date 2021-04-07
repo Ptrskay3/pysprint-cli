@@ -10,7 +10,8 @@ pub fn get_files(
 
     for path in fs::read_dir(root)? {
         let path = path?.path();
-        if let Some("trt") = path.extension().and_then(OsStr::to_str) {
+        // TODO: fix extensions..
+        if let Some("txt") = path.extension().and_then(OsStr::to_str) {
             result.push(path.to_owned());
         }
     }

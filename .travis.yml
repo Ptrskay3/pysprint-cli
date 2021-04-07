@@ -10,7 +10,6 @@ sudo: required
 env:
   global:
     - CRATE_NAME=pysprint-cli
-    - PYO3_NO_PYTHON=1
 
 matrix:
   include:

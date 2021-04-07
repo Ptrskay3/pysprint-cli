@@ -1,8 +1,10 @@
 use clap::{App, AppSettings, Arg, SubCommand};
+use indicatif::{ProgressStyle, ProgressIterator, ProgressBar};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
 use pysprint_cli::{
+    audit::get_files,
     codegen::{maybe_write_default_yaml, render_template, write_tempfile},
     parser::parse,
 };
@@ -12,7 +14,6 @@ use std::io::Write;
 use std::path::Path;
 use std::time::Duration;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-// use indicatif::ProgressBar;
 
 fn main() {
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
@@ -65,11 +66,36 @@ fn main() {
                         .takes_value(false),
                 ),
         )
-        .subcommand(SubCommand::with_name("audit"))
+        .subcommand(
+            SubCommand::with_name("audit").arg(
+                Arg::with_name("path")
+                    .short("p")
+                    .long("path")
+                    .value_name("FILE")
+                    .help("set up the filepath to watch")
+                    .takes_value(true)
+                    .required(true)
+                    .index(1),
+            ),
+        )
         .get_matches();
 
-    if matches.subcommand_matches("audit").is_some() {
-        audit();
+    if let Some(cmd) = matches.subcommand_matches("audit") {
+        if let Some(filepath) = cmd.value_of("path") {
+            let config_file = matches.value_of("config").unwrap_or("eval.yaml");
+            let config_filepath = Path::new(&filepath).join(config_file);
+            if !config_filepath.exists() {
+                maybe_write_default_yaml(&filepath);
+            }
+
+            let result_file = matches.value_of("result").unwrap_or("results.json");
+            let result_filepath = Path::new(&filepath).join(result_file);
+            if !result_file_is_present(&result_filepath, &mut stdout).unwrap_or(true) {
+                create_results_file(&result_filepath.into_os_string().to_str().unwrap()).unwrap();
+            }
+
+            audit(&mut stdout, filepath, config_file, result_file);
+        }
     }
 
     if let Some(matches) = matches.subcommand_matches("watch") {
@@ -173,8 +199,53 @@ fn exec_py(content: &str, stdout: &mut StandardStream) -> PyResult<()> {
     Ok(())
 }
 
-fn audit() {
-    todo!();
+fn audit(stdout: &mut StandardStream, filepath: &str, config_file: &str, result_file: &str) {
+    let (
+        numeric_config,
+        string_config,
+        boolean_config,
+        before_evaluate_triggers,
+        after_evaluate_triggers,
+        file_pattern_options,
+    ) = parse(&format!("{}/{}", filepath, config_file));
+
+    let files = get_files(filepath, &file_pattern_options).unwrap();
+
+    let bar = ProgressBar::new(files.len() as u64);
+    
+    bar.set_style(ProgressStyle::default_bar()
+    .template("{prefix:>16.green} [{bar:57}] {pos}/{len} {msg}"));
+
+    bar.set_prefix("Processing files");
+
+    for file in files.iter() {
+        bar.inc(1);
+
+        // render the code that needs to be executed
+        let code = render_template(
+            file.as_path().file_name().unwrap().to_str().unwrap(),
+            filepath,
+            &string_config,
+            &numeric_config,
+            &boolean_config,
+            &before_evaluate_triggers,
+            &after_evaluate_triggers,
+            &result_file,
+            0,
+        );
+
+        // write the generated code if needed
+
+        let _ = write_tempfile(
+            file.as_path().file_stem().unwrap().to_str().unwrap(),
+            code.as_ref().unwrap(),
+            filepath,
+        );
+
+        // execute it
+        let _ = exec_py(&code.unwrap(), stdout);
+    }
+    bar.finish_with_message("Check `results.json`.");
 }
 
 fn watch<P: AsRef<Path> + Copy>(

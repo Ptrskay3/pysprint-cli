@@ -60,7 +60,7 @@ ifg.cover(
     {%if not std and not fwhm %}fwhm=0.05{% endif %}
 )
 
-ifg.calculate({{ reference_frequency }}, {{ order }}, parallel={% if parallel %}True{% else %}False{% endif %}, fastmath=False)
+ifg._calculate({{ reference_frequency }}, {{ order }}, silent=True, parallel={% if parallel %}True{% else %}False{% endif %}, fastmath=False)
 {% elif methodname == "MinMaxMethod" %}
 ifg.init_edit_session(
     {% if min and max %}
