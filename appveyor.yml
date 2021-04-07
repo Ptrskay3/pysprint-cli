@@ -16,6 +16,7 @@ environment:
     - TARGET: i686-pc-windows-gnu
     - TARGET: x86_64-pc-windows-gnu
 
+    # currently doesn't work
     # MSVC
     - TARGET: i686-pc-windows-msvc
     - TARGET: x86_64-pc-windows-msvc
