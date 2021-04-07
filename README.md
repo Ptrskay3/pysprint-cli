@@ -45,6 +45,12 @@ To start watching a directory, run:
 pysprint-cli watch your/path/here
 ```
 
+To run an evaluation on an already existing filebase, run:
+
+```shell
+pysprint-cli audit your/path/here
+```
+
 Optionally generated files can be saved with the `--persist` (or `-p` for short) flag.
 
 ### TODO!
