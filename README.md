@@ -1,5 +1,9 @@
 # PySprint-CLI
 
+[![Build status](https://ci.appveyor.com/api/projects/status/tmnlqvcsoumeq591?svg=true)](https://ci.appveyor.com/project/Ptrskay3/pysprint-cli)
+
+[![Build Status](https://travis-ci.com/Ptrskay3/pysprint-cli.svg?branch=master)](https://travis-ci.com/Ptrskay3/pysprint-cli)
+
 The command line tool for PySprint to evaluate interferograms immediately on record.
 
 ### Usage

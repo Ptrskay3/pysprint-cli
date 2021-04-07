@@ -7,6 +7,11 @@ environment:
 
     CRATE_NAME: pysprint-cli
 
+    PYTHON: "C:\\Python37-x64"
+    PYO3_PYTHON: PYO3_PYTHON=python3.7
+    PYTHON_VERSION: "3.7.x"
+    PYTHON_ARCH: "64"
+
   matrix:
     # MinGW
     - TARGET: i686-pc-windows-gnu
