@@ -22,7 +22,7 @@ pub fn get_files(
         !skips
             .iter()
             .map(|pattern| pattern.matches(&path.to_str().unwrap()))
-            .any(|op| op == true)
+            .any(|op| op)
     });
 
     Ok(result)

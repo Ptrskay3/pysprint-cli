@@ -219,7 +219,7 @@ after_evaluate:
 
 "#
         .as_bytes(),
-    );
+    )?;
     Ok(())
 }
 
@@ -229,21 +229,17 @@ pub fn maybe_write_default_yaml(path: &str) {
        If you named it something different, use the `-c` option.
        Type 'y' or 'yes' if you want to generate a default one, or anything else to quit."
     );
-    loop {
-        let mut input_text = String::new();
-        io::stdin()
-            .read_line(&mut input_text)
-            .expect("failed to read from stdin");
 
-        match input_text.to_lowercase().trim() {
-            "yes" | "y" => {
-                let _r = write_default_yaml(path);
-                println!("[INFO] Created `eval.yaml` config file.");
-                break;
-            }
-            _ => {
-                break;
-            }
-        };
-    }
+    let mut input_text = String::new();
+    io::stdin()
+        .read_line(&mut input_text)
+        .expect("failed to read from stdin");
+
+    match input_text.to_lowercase().trim() {
+        "yes" | "y" => {
+            let _r = write_default_yaml(path);
+            println!("[INFO] Created `eval.yaml` config file.");
+        }
+        _ => {}
+    };
 }

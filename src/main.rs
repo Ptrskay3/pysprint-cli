@@ -3,7 +3,6 @@ use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
 use pysprint_cli::{
-    audit::get_files,
     codegen::{maybe_write_default_yaml, render_template, write_tempfile},
     parser::parse,
 };
@@ -69,17 +68,19 @@ fn main() {
         .subcommand(SubCommand::with_name("audit"))
         .get_matches();
 
-    if let Some(_) = matches.subcommand_matches("audit") {
+    if matches.subcommand_matches("audit").is_some() {
         audit();
     }
 
     if let Some(matches) = matches.subcommand_matches("watch") {
         let verbosity: u8 = match matches.occurrences_of("verbosity") {
             0 => 0,
-            1 | _ => 1,
+            _ => 1,
         };
         if let Some(filepath) = matches.value_of("path") {
-            writeln!(stdout, "[INFO] PySprint watch mode starting.");
+            if let Err(e) = writeln!(stdout, "[INFO] PySprint watch mode starting.") {
+                println!("Error writing to stdout: {}", e);
+            }
             let config_file = matches.value_of("config").unwrap_or("eval.yaml");
             let config_filepath = Path::new(&filepath).join(config_file);
             if !config_filepath.exists() {
@@ -91,7 +92,9 @@ fn main() {
                 create_results_file(&result_filepath.into_os_string().to_str().unwrap()).unwrap();
             }
 
-            writeln!(stdout, "[INFO] Watch started..");
+            if let Err(e) = writeln!(stdout, "[INFO] Watch started..") {
+                println!("Error writing to stdout: {}", e);
+            }
 
             if let Err(e) = watch(
                 filepath,
@@ -101,7 +104,9 @@ fn main() {
                 verbosity,
                 &mut stdout,
             ) {
-                writeln!(stdout, "[ERROR] error watching..: {:?}", e);
+                if let Err(e) = writeln!(stdout, "[ERROR] error watching..: {:?}", e) {
+                    println!("Error writing to stdout: {}", e);
+                }
             }
         }
     }
@@ -117,15 +122,19 @@ fn result_file_is_present<P: AsRef<Path>>(
             "[WARN] The result file named {:?} already exists. Its contents might be overwritten.",
             result_filepath.as_ref()
         );
-        writeln!(stdout, "{}", warning)?;
+        if let Err(e) = writeln!(stdout, "{}", warning) {
+            println!("Error writing to stdout: {}", e);
+        }
         let _ = WriteColor::reset(stdout);
         Ok(true)
     } else {
-        writeln!(
+        if let Err(e) = writeln!(
             stdout,
             "[INFO] Created {:?} result file.",
             result_filepath.as_ref().file_name().unwrap()
-        );
+        ) {
+            println!("Error writing to stdout: {}", e);
+        }
         Ok(false)
     }
 }
@@ -155,7 +164,9 @@ fn exec_py(content: &str, stdout: &mut StandardStream) -> PyResult<()> {
     if let Err(ref err) = result {
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
         let py_error = format!("[ERRO] Python error:\n{:?}", err);
-        writeln!(stdout, "{}", py_error);
+        if let Err(e) = writeln!(stdout, "{}", py_error) {
+            println!("Error writing to stdout: {}", e);
+        }
         let _ = py.check_signals()?;
         let _ = WriteColor::reset(stdout);
     }
