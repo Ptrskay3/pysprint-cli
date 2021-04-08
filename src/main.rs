@@ -5,7 +5,7 @@ use pysprint_cli::{
     audit::get_files,
     codegen::{maybe_write_default_yaml, render_template, write_tempfile},
     parser::parse,
-    python::{exec_py, py_handshake},
+    python::{exec_py, py_handshake, write_err},
 };
 use std::fs::File;
 use std::io;
@@ -223,6 +223,8 @@ fn audit(
     verbosity: u8,
     persist: bool,
 ) {
+    let mut counter = 0;
+    let mut traceback = String::new();
     let (evaluate_options, intermediate_hooks, file_pattern_options) =
         parse(&format!("{}/{}", filepath, config_file));
 
@@ -252,6 +254,7 @@ fn audit(
             &intermediate_hooks.after_evaluate_triggers,
             &result_file,
             verbosity,
+            true,
         );
 
         // write the generated code if needed
@@ -264,9 +267,26 @@ fn audit(
         }
 
         // execute it
-        let _ = exec_py(&code.unwrap(), stdout);
+        if let Ok((e, tb)) = exec_py(&code.unwrap(), stdout, true) {
+            if e {
+                counter += 1;
+                traceback.push_str(&format!("file: {}\terror: {}\n", file.as_path().file_name().unwrap().to_str().unwrap(), &tb));
+            }
+        }
     }
     bar.finish_with_message("Done.");
+    if counter > 0 {
+        writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter);
+        let pb = ProgressBar::new_spinner();
+        let spinner_style = ProgressStyle::default_spinner()
+            .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+            .template("{prefix:.bold.dim} {spinner} {wide_msg}");
+        pb.set_style(spinner_style);
+        pb.set_message("Generating report..");
+        pb.enable_steady_tick(40);
+        let _ = write_err(filepath, &traceback);
+        pb.finish_with_message(&format!("Report generated at `{}/report.log`.", filepath));
+    }
 }
 
 fn watch<P: AsRef<Path> + Copy>(
@@ -321,6 +341,7 @@ fn watch<P: AsRef<Path> + Copy>(
                                         &intermediate_hooks.after_evaluate_triggers,
                                         &result_file,
                                         verbosity,
+                                        false,
                                     );
 
                                     // write the generated code if needed
@@ -333,7 +354,7 @@ fn watch<P: AsRef<Path> + Copy>(
                                     }
 
                                     // execute it
-                                    let _ = exec_py(&code.unwrap(), stdout);
+                                    let _ = exec_py(&code.unwrap(), stdout, false);
                                 }
                             }
                             None => {} // if there's no extension, we probably should do nothing

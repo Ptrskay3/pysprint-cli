@@ -62,7 +62,7 @@ ifg.cover(
     {%if not std and not fwhm %}fwhm=0.05{% endif %}
 )
 
-ifg._calculate({{ reference_frequency }}, {{ order }}, silent=True, parallel={% if parallel %}True{% else %}False{% endif %}, fastmath=False)
+ifg.{%- if is_audit -%}_{%- endif -%}calculate({{ reference_frequency }}, {{ order }}, silent={%- if is_audit -%}True{%- else -%}False{%- endif -%}, parallel={% if parallel %}True{% else %}False{% endif %}, fastmath=False)
 {% elif methodname == "MinMaxMethod" %}
 ifg.init_edit_session(
     {% if min and max %}
@@ -125,6 +125,7 @@ pub fn render_template(
     after_evaluate_triggers: &[String],
     result_file: &str,
     verbosity: u8,
+    is_audit: bool,
 ) -> Result<std::string::String, tera::Error> {
     let mut context = Context::new();
 
@@ -144,6 +145,7 @@ pub fn render_template(
     context.insert("result_file", result_file);
     context.insert("filename_raw", &file);
     context.insert("workdir", &path);
+    context.insert("is_audit", &is_audit);
 
     // FIXME: this is redundant
     context.insert("filename", &format!("{}/{}", path, file));
