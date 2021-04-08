@@ -51,6 +51,8 @@ plt.show(block=True)
 {% endfor %}
 
 {% if methodname == "FFTMethod" %}
+import warnings
+warnings.simplefilter("ignore")
 ifg.autorun({{ reference_frequency }}, {{ order }}, show_graph=False, enable_printing=False)
 {% elif methodname == "WFTMethod" %}
 ifg.cover(
@@ -107,7 +109,7 @@ ps.utils._write_or_update_json_fragment("{{ workdir }}/{{ result_file }}", fragm
 pub fn write_tempfile(name: &str, content: &str, path: &str) -> std::io::Result<()> {
     let tempfile = Builder::new().tempfile_in(path)?;
 
-    let mut _file = tempfile.persist(format!("{}/{}_pstemp.py", path, name))?;
+    let mut _file = tempfile.persist(format!("{}/{}_ps.py", path, name))?;
     writeln!(_file, "{}", content)?;
 
     Ok(())
@@ -142,6 +144,8 @@ pub fn render_template(
     context.insert("result_file", result_file);
     context.insert("filename_raw", &file);
     context.insert("workdir", &path);
+
+    // FIXME: this is redundant
     context.insert("filename", &format!("{}/{}", path, file));
 
     // other
@@ -159,26 +163,26 @@ fn write_default_yaml(path: &str) -> std::io::Result<()> {
         r#"load_options:
   - extensions:
       - "trt"
-      - "txt"
-  - exclude_patterns:
-      - "*_randomfile.trt"
-      - "*_to_skip.trt"
-  - skip:
-      - "filename.trt"
-      - "file_to_skip.trt"
+#      - "txt"
+#  - exclude_patterns:
+#      - "*_randomfile.trt"
+#      - "*_to_skip.trt"
+#  - skip:
+#      - "filename.trt"
+#      - "file_to_skip.trt"
   - skiprows: 8 # lines
   - decimal: ","
   - delimiter: ";"
   - meta_len: 6 # lines
 
 preprocess:
-  - input_unit: "nm"
+#  - input_unit: "nm"
   - chdomain: true
-  - slice_start: 2 # PHz
-  - slice_stop: 4 # PHz
+#  - slice_start: 2 # PHz
+#  - slice_stop: 4 # PHz
 
 method:
-  - wft
+  - wft # | fft | mm
 
 method_details:
   # globally available options
@@ -207,15 +211,15 @@ method_details:
   # options for -- SPPMethod --
   # not implemented yet
 
-before_evaluate:
-  - "print('before_evaluate')"
+# before_evaluate:
+  # - "print('before_evaluate')"
 
 evaluate:
   - reference_frequency: 2.355 # PHz
   - order: 3 # up to TOD
 
-after_evaluate:
-  - "print('and after..')"
+# after_evaluate:
+  # - "print('and after..')"
 
 "#
         .as_bytes(),

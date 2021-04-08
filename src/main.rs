@@ -1,12 +1,11 @@
 use clap::{App, AppSettings, Arg, SubCommand};
-use indicatif::{ProgressStyle, ProgressIterator, ProgressBar};
+use indicatif::{ProgressBar, ProgressStyle};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
-use pyo3::prelude::*;
-use pyo3::types::IntoPyDict;
 use pysprint_cli::{
     audit::get_files,
     codegen::{maybe_write_default_yaml, render_template, write_tempfile},
     parser::parse,
+    python::{exec_py, py_handshake},
 };
 use std::fs::File;
 use std::io;
@@ -67,20 +66,56 @@ fn main() {
                 ),
         )
         .subcommand(
-            SubCommand::with_name("audit").arg(
-                Arg::with_name("path")
-                    .short("p")
-                    .long("path")
-                    .value_name("FILE")
-                    .help("set up the filepath to watch")
-                    .takes_value(true)
-                    .required(true)
-                    .index(1),
-            ),
+            SubCommand::with_name("audit")
+                .arg(
+                    Arg::with_name("path")
+                        .short("p")
+                        .long("path")
+                        .value_name("FILE")
+                        .help("set up the filepath to watch")
+                        .takes_value(true)
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("verbosity")
+                        .short("v")
+                        .help("increase the verbosity level of results")
+                        .multiple(true)
+                        .takes_value(false),
+                )
+                .arg(
+                    Arg::with_name("persist")
+                        .long("persist")
+                        .value_name("PERSIST")
+                        .help("persist the evaluation files")
+                        .takes_value(false),
+                )
+                .arg(
+                    Arg::with_name("result")
+                        .short("r")
+                        .long("result")
+                        .value_name("RESULT")
+                        .help("the file to write results")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("config")
+                        .short("c")
+                        .long("config")
+                        .value_name("CONFIG")
+                        .help("the config file to use")
+                        .takes_value(true),
+                ),
         )
         .get_matches();
 
     if let Some(cmd) = matches.subcommand_matches("audit") {
+        let verbosity: u8 = match cmd.occurrences_of("verbosity") {
+            0 => 0,
+            _ => 1,
+        };
+        let persist = cmd.is_present("persist");
         if let Some(filepath) = cmd.value_of("path") {
             let config_file = matches.value_of("config").unwrap_or("eval.yaml");
             let config_filepath = Path::new(&filepath).join(config_file);
@@ -88,13 +123,20 @@ fn main() {
                 maybe_write_default_yaml(&filepath);
             }
 
-            let result_file = matches.value_of("result").unwrap_or("results.json");
+            let result_file = cmd.value_of("result").unwrap_or("results.json");
             let result_filepath = Path::new(&filepath).join(result_file);
             if !result_file_is_present(&result_filepath, &mut stdout).unwrap_or(true) {
                 create_results_file(&result_filepath.into_os_string().to_str().unwrap()).unwrap();
             }
 
-            audit(&mut stdout, filepath, config_file, result_file);
+            audit(
+                &mut stdout,
+                filepath,
+                config_file,
+                result_file,
+                verbosity,
+                persist,
+            );
         }
     }
 
@@ -117,6 +159,8 @@ fn main() {
             if !result_file_is_present(&result_filepath, &mut stdout).unwrap_or(true) {
                 create_results_file(&result_filepath.into_os_string().to_str().unwrap()).unwrap();
             }
+
+            let _ = py_handshake(&mut stdout);
 
             if let Err(e) = writeln!(stdout, "[INFO] Watch started..") {
                 println!("Error writing to stdout: {}", e);
@@ -171,50 +215,26 @@ fn create_results_file(filename: &str) -> std::io::Result<()> {
     Ok(())
 }
 
-fn exec_py(content: &str, stdout: &mut StandardStream) -> PyResult<()> {
-    // start a python interpreter
-    let gil = Python::acquire_gil();
-    let py = gil.python();
+fn audit(
+    stdout: &mut StandardStream,
+    filepath: &str,
+    config_file: &str,
+    result_file: &str,
+    verbosity: u8,
+    persist: bool,
+) {
+    let (evaluate_options, intermediate_hooks, file_pattern_options) =
+        parse(&format!("{}/{}", filepath, config_file));
 
-    // with the required packages imported already
-    let locals = [
-        ("np", py.import("numpy")?),
-        ("ps", py.import("pysprint")?),
-        ("plt", py.import("matplotlib.pyplot")?),
-    ]
-    .into_py_dict(py);
-
-    let result = py.run(content, None, Some(&locals));
-
-    // print Python errors only, stay quiet when Ok(())
-    if let Err(ref err) = result {
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
-        let py_error = format!("[ERRO] Python error:\n{:?}", err);
-        if let Err(e) = writeln!(stdout, "{}", py_error) {
-            println!("Error writing to stdout: {}", e);
-        }
-        let _ = py.check_signals()?;
-        let _ = WriteColor::reset(stdout);
-    }
-    Ok(())
-}
-
-fn audit(stdout: &mut StandardStream, filepath: &str, config_file: &str, result_file: &str) {
-    let (
-        numeric_config,
-        string_config,
-        boolean_config,
-        before_evaluate_triggers,
-        after_evaluate_triggers,
-        file_pattern_options,
-    ) = parse(&format!("{}/{}", filepath, config_file));
+    let _ = py_handshake(stdout);
 
     let files = get_files(filepath, &file_pattern_options).unwrap();
 
     let bar = ProgressBar::new(files.len() as u64);
-    
-    bar.set_style(ProgressStyle::default_bar()
-    .template("{prefix:>16.green} [{bar:57}] {pos}/{len} {msg}"));
+
+    bar.set_style(
+        ProgressStyle::default_bar().template("{prefix:>16.green} [{bar:50}] {pos}/{len} {msg}"),
+    );
 
     bar.set_prefix("Processing files");
 
@@ -225,27 +245,28 @@ fn audit(stdout: &mut StandardStream, filepath: &str, config_file: &str, result_
         let code = render_template(
             file.as_path().file_name().unwrap().to_str().unwrap(),
             filepath,
-            &string_config,
-            &numeric_config,
-            &boolean_config,
-            &before_evaluate_triggers,
-            &after_evaluate_triggers,
+            &evaluate_options.text_options,
+            &evaluate_options.number_options,
+            &evaluate_options.bool_options,
+            &intermediate_hooks.before_evaluate_triggers,
+            &intermediate_hooks.after_evaluate_triggers,
             &result_file,
-            0,
+            verbosity,
         );
 
         // write the generated code if needed
-
-        let _ = write_tempfile(
-            file.as_path().file_stem().unwrap().to_str().unwrap(),
-            code.as_ref().unwrap(),
-            filepath,
-        );
+        if persist {
+            let _ = write_tempfile(
+                file.as_path().file_stem().unwrap().to_str().unwrap(),
+                code.as_ref().unwrap(),
+                filepath,
+            );
+        }
 
         // execute it
         let _ = exec_py(&code.unwrap(), stdout);
     }
-    bar.finish_with_message("Check `results.json`.");
+    bar.finish_with_message("Done.");
 }
 
 fn watch<P: AsRef<Path> + Copy>(
@@ -263,14 +284,9 @@ fn watch<P: AsRef<Path> + Copy>(
 
     // we need to append the filepath to the template, because python also runs from *here*.
     let fpath = &path.as_ref().to_str().unwrap();
-    let (
-        numeric_config,
-        string_config,
-        boolean_config,
-        before_evaluate_triggers,
-        after_evaluate_triggers,
-        file_pattern_options,
-    ) = parse(&format!("{}/{}", fpath, config_file));
+    let (evaluate_options, intermediate_hooks, file_pattern_options) =
+        parse(&format!("{}/{}", fpath, config_file));
+
     loop {
         match rx.recv() {
             Ok(event) => {
@@ -298,11 +314,11 @@ fn watch<P: AsRef<Path> + Copy>(
                                     let code = render_template(
                                         &e.file_name().unwrap().to_str().unwrap(),
                                         fpath,
-                                        &string_config,
-                                        &numeric_config,
-                                        &boolean_config,
-                                        &before_evaluate_triggers,
-                                        &after_evaluate_triggers,
+                                        &evaluate_options.text_options,
+                                        &evaluate_options.number_options,
+                                        &evaluate_options.bool_options,
+                                        &intermediate_hooks.before_evaluate_triggers,
+                                        &intermediate_hooks.after_evaluate_triggers,
                                         &result_file,
                                         verbosity,
                                     );

@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 
-// // TODO
-// pub struct EvaluateOptions {
-//     numeric: HashMap<String, Box<f64>>,
-//     textual: HashMap<String, String>,
-//     boolean: HashMap<String, Box<bool>>
-// }
+#[derive(Debug)]
+pub struct EvaluateOptions {
+    pub number_options: HashMap<String, Box<f64>>,
+    pub text_options: HashMap<String, String>,
+    pub bool_options: HashMap<String, Box<bool>>,
+}
 
-// // TODO
-// pub struct IntermediateHooks {
-//     before_evaulate_triggers: Vec<String>,
-//     after_evaulate_triggers: Vec<String>
-// }
+#[derive(Debug)]
+pub struct IntermediateHooks {
+    pub before_evaluate_triggers: Vec<String>,
+    pub after_evaluate_triggers: Vec<String>,
+}
 
 #[derive(Debug)]
 pub struct FilePatternOptions {
@@ -25,16 +25,7 @@ fn read_yaml(file: &str) -> Result<serde_yaml::Value, Box<dyn std::error::Error>
     Ok(serde_yaml::from_reader(f)?)
 }
 
-pub fn parse(
-    file: &str,
-) -> (
-    HashMap<String, Box<f64>>,
-    HashMap<String, String>,
-    HashMap<String, Box<bool>>,
-    Vec<String>,
-    Vec<String>,
-    FilePatternOptions,
-) {
+pub fn parse(file: &str) -> (EvaluateOptions, IntermediateHooks, FilePatternOptions) {
     let yaml_file = read_yaml(file).unwrap();
 
     // options that can be represented as a number
@@ -44,7 +35,7 @@ pub fn parse(
     // options that can be represented as boolean
     let mut bool_options: HashMap<String, Box<bool>> = HashMap::new();
     // trigger before evaluate
-    let mut before_evaulate_triggers: Vec<String> = Vec::new();
+    let mut before_evaluate_triggers: Vec<String> = Vec::new();
     // trigger after evaluate
     let mut after_evaluate_triggers: Vec<String> = Vec::new();
     // options that fit in a vector
@@ -125,7 +116,7 @@ pub fn parse(
     for commands in yaml_file["before_evaluate"].as_sequence().iter() {
         for command in commands.iter() {
             if let serde_yaml::Value::String(cmd) = command {
-                before_evaulate_triggers.push(cmd.to_string());
+                before_evaluate_triggers.push(cmd.to_string());
             }
         }
     }
@@ -190,11 +181,15 @@ pub fn parse(
     }
 
     (
-        number_options,
-        text_options,
-        bool_options,
-        before_evaulate_triggers,
-        after_evaluate_triggers,
+        EvaluateOptions {
+            number_options,
+            text_options,
+            bool_options,
+        },
+        IntermediateHooks {
+            before_evaluate_triggers,
+            after_evaluate_triggers,
+        },
         FilePatternOptions {
             exclude_patterns,
             skip_files,
