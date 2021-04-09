@@ -6,6 +6,12 @@ use std::path::PathBuf;
 use tempfile::Builder;
 use tera::{Context, Tera};
 
+const IMPORT_HEADERS: &str = r#"import numpy as np
+import pysprint as ps
+import matplotlib.pyplot as plt
+
+"#;
+
 lazy_static! {
     pub static ref TEMPLATES: Tera = {
         let mut tera = Tera::default();
@@ -27,7 +33,7 @@ for entry in SKIP_IF:
     try:
         if entry in ifg.meta['comment']:
             import sys
-            sys.exit("file skipped due to user comment")
+            sys.exit(f"file skipped due to user comment contains `{entry}`.")
     except KeyError:
         pass
 
@@ -95,6 +101,8 @@ ifg.heatmap()
 plt.show(block=True)
 {% endif %}
 
+# if you are working with the generated file, the part below can be safely commented out
+
 fragment = ps.utils._prepare_json_fragment(ifg, "{{ filename_raw }}", x_before_transform, y_before_transform, verbosity={{ verbosity }})
 ps.utils._write_or_update_json_fragment("{{ workdir }}/{{ result_file }}", fragment, "{{ filename_raw }}")
 
@@ -106,11 +114,15 @@ ps.utils._write_or_update_json_fragment("{{ workdir }}/{{ result_file }}", fragm
     };
 }
 
-pub fn write_tempfile(name: &str, content: &str, path: &str) -> std::io::Result<()> {
+pub fn write_tempfile_with_imports(name: &str, content: &str, path: &str) -> std::io::Result<()> {
+    // we also write the import headers to the generated file
+    let mut accumulator = IMPORT_HEADERS.to_owned();
+    accumulator.push_str(content);
+
     let tempfile = Builder::new().tempfile_in(path)?;
 
     let mut _file = tempfile.persist(format!("{}/{}_ps.py", path, name))?;
-    writeln!(_file, "{}", content)?;
+    writeln!(_file, "{}", accumulator)?;
 
     Ok(())
 }

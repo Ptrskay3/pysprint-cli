@@ -26,12 +26,16 @@ pub fn py_handshake(stdout: &mut StandardStream) {
 }
 
 /// Execute Python code passed as &str.
-pub fn exec_py(content: &str, stdout: &mut StandardStream, to_file: bool) -> PyResult<(bool, String)> {
+pub fn exec_py(
+    content: &str,
+    stdout: &mut StandardStream,
+    to_file: bool,
+) -> PyResult<(bool, String)> {
     let mut is_err = false;
 
     // the error, if exists..
     let mut traceback = String::new();
-    
+
     // start a python interpreter
     let gil = Python::acquire_gil();
     let py = gil.python();
@@ -65,10 +69,7 @@ pub fn exec_py(content: &str, stdout: &mut StandardStream, to_file: bool) -> PyR
 }
 
 pub fn write_err(path: &str, content: &str) -> std::io::Result<()> {
-    let cfg_path = PathBuf::from(path).join("report.log");
-    std::fs::write(
-        cfg_path,
-        content.as_bytes(),
-    )?;
+    let cfg_path = PathBuf::from(path).join("errors.log");
+    std::fs::write(cfg_path, content.as_bytes())?;
     Ok(())
 }

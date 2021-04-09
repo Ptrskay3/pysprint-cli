@@ -3,7 +3,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use pysprint_cli::{
     audit::get_files,
-    codegen::{maybe_write_default_yaml, render_template, write_tempfile},
+    codegen::{maybe_write_default_yaml, render_template, write_tempfile_with_imports},
     parser::parse,
     python::{exec_py, py_handshake, write_err},
 };
@@ -259,7 +259,7 @@ fn audit(
 
         // write the generated code if needed
         if persist {
-            let _ = write_tempfile(
+            let _ = write_tempfile_with_imports(
                 file.as_path().file_stem().unwrap().to_str().unwrap(),
                 code.as_ref().unwrap(),
                 filepath,
@@ -270,7 +270,11 @@ fn audit(
         if let Ok((e, tb)) = exec_py(&code.unwrap(), stdout, true) {
             if e {
                 counter += 1;
-                traceback.push_str(&format!("file: {}\terror: {}\n", file.as_path().file_name().unwrap().to_str().unwrap(), &tb));
+                traceback.push_str(&format!(
+                    "file: {}\terror: {}\n",
+                    file.as_path().file_name().unwrap().to_str().unwrap_or("unknown"),
+                    &tb
+                ));
             }
         }
     }
@@ -285,7 +289,7 @@ fn audit(
         pb.set_message("Generating report..");
         pb.enable_steady_tick(40);
         let _ = write_err(filepath, &traceback);
-        pb.finish_with_message(&format!("Report generated at `{}/report.log`.", filepath));
+        pb.finish_with_message(&format!("Report generated at `{}/errors.log`.", filepath));
     }
 }
 
@@ -346,7 +350,7 @@ fn watch<P: AsRef<Path> + Copy>(
 
                                     // write the generated code if needed
                                     if persist {
-                                        let _ = write_tempfile(
+                                        let _ = write_tempfile_with_imports(
                                             &e.file_stem().unwrap().to_str().unwrap(),
                                             code.as_ref().unwrap(),
                                             fpath,

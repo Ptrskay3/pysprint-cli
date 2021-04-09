@@ -1,6 +1,6 @@
 [package]
 name = "pysprint-cli"
-version = "0.1.0-alpha.0"
+version = "0.1.0-alpha.0" 
 license = "MIT OR Apache-2.0"
 description = "A CLI tool for the Python package PySprint"
 readme = "README.md"

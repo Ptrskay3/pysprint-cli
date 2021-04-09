@@ -25,13 +25,17 @@ pub fn get_files(
 
     for path in fs::read_dir(root)? {
         let path = path?.path();
-
+        
+        // skip directories, we dont walk recursively at the moment
+        if path.is_dir() {
+            continue;
+        }
         // early bailout of skip files
-        if skips_as_str_ref.contains(&path.file_name().and_then(OsStr::to_str).unwrap()) {
+        if skips_as_str_ref.contains(&path.file_name().and_then(OsStr::to_str).unwrap_or("__nofilename")) {
             continue;
         }
         // pick up files that have the specified extensions
-        if ext_as_str_ref.contains(&path.extension().and_then(OsStr::to_str).unwrap()) {
+        if ext_as_str_ref.contains(&path.extension().and_then(OsStr::to_str).unwrap_or("__noextension")) {
             result.push(path.to_owned());
         }
     }
