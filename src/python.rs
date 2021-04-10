@@ -1,9 +1,12 @@
 use indicatif::{ProgressBar, ProgressStyle};
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
+use pyo3::ffi;
 use std::io::Write;
 use std::path::PathBuf;
 use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
+use widestring::WideCString;
+
 
 /// Check if we're able to start a Python interpreter,
 /// and fail early if we can't.
@@ -31,6 +34,18 @@ pub fn exec_py(
     stdout: &mut StandardStream,
     to_file: bool,
 ) -> PyResult<(bool, String)> {
+
+    // if there is `CONDA_PREFIX`, set PYTHONHOME
+    if let Some(PYTHONHOME) = std::env::var_os("CONDA_PREFIX") {
+            unsafe {
+                ffi::Py_SetPythonHome(
+                    WideCString::from_str(PYTHONHOME.to_str().unwrap())
+                        .unwrap()
+                        .as_ptr(),
+                );
+            }
+        }
+
     let mut is_err = false;
 
     // the error, if exists..
