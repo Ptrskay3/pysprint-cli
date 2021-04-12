@@ -247,11 +247,8 @@ fn audit(
         let code = render_template(
             file.as_path().file_name().unwrap().to_str().unwrap(),
             filepath,
-            &evaluate_options.text_options,
-            &evaluate_options.number_options,
-            &evaluate_options.bool_options,
-            &intermediate_hooks.before_evaluate_triggers,
-            &intermediate_hooks.after_evaluate_triggers,
+            &evaluate_options,
+            &intermediate_hooks,
             &result_file,
             verbosity,
             true,
@@ -272,7 +269,11 @@ fn audit(
                 counter += 1;
                 traceback.push_str(&format!(
                     "file: {}\terror: {}\n",
-                    file.as_path().file_name().unwrap().to_str().unwrap_or("unknown"),
+                    file.as_path()
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap_or("unknown"),
                     &tb
                 ));
             }
@@ -280,7 +281,9 @@ fn audit(
     }
     bar.finish_with_message("Done.");
     if counter > 0 {
-        writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter);
+        if let Err(e) = writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter) {
+            println!("Error writing to stdout: {:?}", e);
+        }
         let pb = ProgressBar::new_spinner();
         let spinner_style = ProgressStyle::default_spinner()
             .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
@@ -326,8 +329,6 @@ fn watch<P: AsRef<Path> + Copy>(
                                     .extensions
                                     .contains(&value.to_str().unwrap().to_owned())
                                 {
-                                    // TODO: filter files to skip
-
                                     // clear terminal on rerun
                                     print!("\x1B[2J\x1B[1;1H");
                                     // stdout is frequently line-buffered by default so it is necessary
@@ -338,11 +339,8 @@ fn watch<P: AsRef<Path> + Copy>(
                                     let code = render_template(
                                         &e.file_name().unwrap().to_str().unwrap(),
                                         fpath,
-                                        &evaluate_options.text_options,
-                                        &evaluate_options.number_options,
-                                        &evaluate_options.bool_options,
-                                        &intermediate_hooks.before_evaluate_triggers,
-                                        &intermediate_hooks.after_evaluate_triggers,
+                                        &evaluate_options,
+                                        &intermediate_hooks,
                                         &result_file,
                                         verbosity,
                                         false,

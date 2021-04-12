@@ -1,12 +1,11 @@
 use indicatif::{ProgressBar, ProgressStyle};
+use pyo3::ffi;
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
-use pyo3::ffi;
 use std::io::Write;
 use std::path::PathBuf;
 use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
 use widestring::WideCString;
-
 
 /// Check if we're able to start a Python interpreter,
 /// and fail early if we can't.
@@ -34,18 +33,21 @@ pub fn exec_py(
     stdout: &mut StandardStream,
     to_file: bool,
 ) -> PyResult<(bool, String)> {
-
-    // if there is `CONDA_PREFIX`, set PYTHONHOME
-    if let Some(PYTHONHOME) = std::env::var_os("CONDA_PREFIX") {
-            unsafe {
-                ffi::Py_SetPythonHome(
-                    WideCString::from_str(PYTHONHOME.to_str().unwrap())
-                        .unwrap()
-                        .as_ptr(),
-                );
-            }
+    // if there is `CONDA_PREFIX`, set PYTHONHOME to the same thing.
+    // related issue: https://github.com/ContinuumIO/anaconda-issues/issues/11439
+    // this is potentially unsafe and not tested, so it should be avoided if the issue gets resolved
+    if let Some(python_home) = std::env::var_os("CONDA_PREFIX") {
+        unsafe {
+            ffi::Py_SetPythonHome(
+                WideCString::from_str(python_home.to_str().unwrap())
+                    .unwrap()
+                    .as_ptr(),
+            );
         }
+    }
 
+    // whether this run resulted in an error
+    // we count the fails in audit using this variable
     let mut is_err = false;
 
     // the error, if exists..
@@ -67,7 +69,6 @@ pub fn exec_py(
 
     // print Python errors only, stay quiet when Ok(())
     if let Err(ref err) = result {
-        // TODO: write error to file.
         is_err = true;
         traceback = err.to_string();
         if !to_file {

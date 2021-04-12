@@ -3,3 +3,9 @@ rrr = ["run", "--release", "--", "watch", "./example"]
 rrrv = ["run", "--release", "--", "watch", "./example", "-v"]
 rrrp = ["run", "--release", "--", "watch", "./example", "--persist"]
 rrrpv = ["run", "--release", "--", "watch", "./example", "--persist", "-v"]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.i686-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

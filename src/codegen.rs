@@ -1,5 +1,5 @@
+use crate::parser::{EvaluateOptions, IntermediateHooks};
 use lazy_static::lazy_static;
-use std::collections::HashMap;
 use std::io;
 use std::io::Write;
 use std::path::PathBuf;
@@ -130,26 +130,23 @@ pub fn write_tempfile_with_imports(name: &str, content: &str, path: &str) -> std
 pub fn render_template(
     file: &str,
     path: &str,
-    text_options: &HashMap<String, String>,
-    number_options: &HashMap<String, Box<f64>>,
-    bool_options: &HashMap<String, Box<bool>>,
-    before_evaluate_triggers: &[String],
-    after_evaluate_triggers: &[String],
+    evaluate_options: &EvaluateOptions,
+    intermediate_hooks: &IntermediateHooks,
     result_file: &str,
     verbosity: u8,
     is_audit: bool,
 ) -> Result<std::string::String, tera::Error> {
     let mut context = Context::new();
 
-    for (key, entry) in number_options {
+    for (key, entry) in &evaluate_options.number_options {
         context.insert(key, &entry);
     }
 
-    for (key, entry) in text_options {
+    for (key, entry) in &evaluate_options.text_options {
         context.insert(key, &entry);
     }
 
-    for (key, entry) in bool_options {
+    for (key, entry) in &evaluate_options.bool_options {
         context.insert(key, &entry);
     }
     // Specials
@@ -163,8 +160,14 @@ pub fn render_template(
     context.insert("filename", &format!("{}/{}", path, file));
 
     // other
-    context.insert("before_evaluate_triggers", &before_evaluate_triggers);
-    context.insert("after_evaluate_triggers", &after_evaluate_triggers);
+    context.insert(
+        "before_evaluate_triggers",
+        &intermediate_hooks.before_evaluate_triggers,
+    );
+    context.insert(
+        "after_evaluate_triggers",
+        &intermediate_hooks.after_evaluate_triggers,
+    );
 
     // render as String
     TEMPLATES.render("pstemplate.py_t", &context)

@@ -28,17 +28,13 @@ fn read_yaml(file: &str) -> Result<serde_yaml::Value, Box<dyn std::error::Error>
 pub fn parse(file: &str) -> (EvaluateOptions, IntermediateHooks, FilePatternOptions) {
     let yaml_file = read_yaml(file).unwrap();
 
-    // options that can be represented as a number
     let mut number_options: HashMap<String, Box<f64>> = HashMap::new();
-    // options that can be represented as text
     let mut text_options: HashMap<String, String> = HashMap::new();
-    // options that can be represented as boolean
     let mut bool_options: HashMap<String, Box<bool>> = HashMap::new();
-    // trigger before evaluate
     let mut before_evaluate_triggers: Vec<String> = Vec::new();
-    // trigger after evaluate
     let mut after_evaluate_triggers: Vec<String> = Vec::new();
-    // options that fit in a vector
+
+    // options that relate to the loading optios
     let mut exclude_patterns: Vec<String> = Vec::new();
     let mut skip_files: Vec<String> = Vec::new();
     let mut extensions: Vec<String> = Vec::new();
