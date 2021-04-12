@@ -4,6 +4,8 @@
 
 [![Build Status](https://travis-ci.com/Ptrskay3/pysprint-cli.svg?branch=master)](https://travis-ci.com/Ptrskay3/pysprint-cli)
 
+![CI](https://github.com/Ptrskay3/pysprint-cli/actions/workflows/ci.yml/badge.svg)
+
 The command line tool for PySprint to evaluate interferograms immediately on record.
 
 ### Usage

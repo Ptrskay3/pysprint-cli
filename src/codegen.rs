@@ -203,7 +203,6 @@ method:
 
 method_details:
   # globally available options
-  # - auto
   # - only_phase
   # - detach
 

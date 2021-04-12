@@ -36,13 +36,15 @@ pub fn exec_py(
     // if there is `CONDA_PREFIX`, set PYTHONHOME to the same thing.
     // related issue: https://github.com/ContinuumIO/anaconda-issues/issues/11439
     // this is potentially unsafe and not tested, so it should be avoided if the issue gets resolved
-    if let Some(python_home) = std::env::var_os("CONDA_PREFIX") {
-        unsafe {
-            ffi::Py_SetPythonHome(
-                WideCString::from_str(python_home.to_str().unwrap())
-                    .unwrap()
-                    .as_ptr(),
-            );
+    if cfg!(windows) {
+        if let Some(python_home) = std::env::var_os("CONDA_PREFIX") {
+            unsafe {
+                ffi::Py_SetPythonHome(
+                    WideCString::from_str(python_home.to_str().unwrap())
+                        .unwrap()
+                        .as_ptr(),
+                );
+            }
         }
     }
 
