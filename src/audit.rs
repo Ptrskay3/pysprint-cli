@@ -1,6 +1,38 @@
 use crate::parser::FilePatternOptions;
-use std::{ffi::OsStr, fs, io, path::PathBuf};
+use std::{ffi::OsStr, fs, io, io::Write, path::PathBuf};
+use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
 use wildmatch::WildMatch;
+
+pub fn sort_by_arms(
+    files: &[PathBuf],
+    stdout: &mut StandardStream,
+) -> (Vec<PathBuf>, Vec<PathBuf>, Vec<PathBuf>) {
+    let mut ifgs = Vec::<PathBuf>::new();
+    let mut sams = Vec::<PathBuf>::new();
+    let mut refs = Vec::<PathBuf>::new();
+
+    // exclude the hanging files, the arms missmatch somewhere
+    let n = files.len() - files.len() % 3;
+    if n != files.len() {
+        let _ = stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)));
+        let _ = writeln!(
+            stdout,
+            "[WARN] The number of files is not divisible by 3..
+       Maybe you forgot to exclude/include some?"
+        );
+        let _ = WriteColor::reset(stdout);
+    }
+    for file in files.iter().take(n).step_by(3) {
+        ifgs.push(file.to_path_buf());
+    }
+    for file in files.iter().take(n).skip(1).step_by(3) {
+        sams.push(file.to_path_buf());
+    }
+    for file in files.iter().take(n).skip(2).step_by(3) {
+        refs.push(file.to_path_buf());
+    }
+    (ifgs, sams, refs)
+}
 
 pub fn get_files(
     root: &str,
@@ -60,6 +92,7 @@ pub fn get_files(
             .any(|op| op)
     });
 
+    result.sort();
     Ok(result)
 }
 

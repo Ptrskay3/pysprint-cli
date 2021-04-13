@@ -63,6 +63,7 @@ Optionally generated files can be saved with the `--persist` (or `-p` for short)
 
 - TOP PRIORITY:
 
+  - Currently there are lots of duplication around, because I focusen on "getting the job done". Later it should be corrected..
   - refactor and clean up
   - add field: disable printing from Python
   - features for audit + cli integration
@@ -71,9 +72,9 @@ Optionally generated files can be saved with the `--persist` (or `-p` for short)
 - detach [ok]
 - automock imports
 - termcolor --> color by severity [partially ok]
-- implement audit [working on it]
+- implement audit [partially ok]
 
 - implement method switch [partially ok]
 - custom build steps
 - logging to a common result file [partially ok]
-- sort files by mod 3
+- sort files by mod 3 [partially ok]

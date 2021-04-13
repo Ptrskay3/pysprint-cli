@@ -139,6 +139,12 @@ pub fn parse(file: &str) -> (EvaluateOptions, IntermediateHooks, FilePatternOpti
                     }
                     "mm" => text_options
                         .insert(String::from("methodname"), String::from("MinMaxMethod")),
+                    "spp" => {
+                        text_options.insert(String::from("methodname"), String::from("SPPMethod"))
+                    }
+                    "cff" => text_options
+                        .insert(String::from("methodname"), String::from("CosFitMethod")),
+
                     _ => panic!("method named {:?} is not implemented", cmd),
                 };
             }

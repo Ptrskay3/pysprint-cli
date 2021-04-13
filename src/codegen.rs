@@ -60,6 +60,13 @@ plt.show(block=True)
 import warnings
 warnings.simplefilter("ignore")
 ifg.autorun({{ reference_frequency }}, {{ order }}, show_graph=False, enable_printing=False)
+{% elif methodname == "CosFitMethod" %}
+{% if not is_audit %}
+import sys
+sys.exit("CosFit is not supported in watch mode")
+{% endif %}
+ifg.GD_lookup({{reference_frequency}}, silent=True)
+ifg.optimizer({{reference_frequency}}, {{ order }}, initial_region_ratio=0.05, extend_by=0.05, show_endpoint=False)
 {% elif methodname == "WFTMethod" %}
 ifg.cover(
     {% if windows %}{{ windows }}{% else %}300{% endif %},
@@ -110,6 +117,38 @@ ps.utils._write_or_update_json_fragment("{{ workdir }}/{{ result_file }}", fragm
 {{ cmd }}
 {% endfor %}"#,
         );
+        let _ = tera.add_raw_template(
+            "spp.py_t",
+            r#"
+ifg_files = [
+    {% for file in ifg_files %}
+    r"{{ file }}",
+    {% endfor %}
+    ]
+sam_files = [
+    {% for file in sam_files %}
+    r"{{ file }}",
+    {% endfor %}
+]
+
+ref_files = [
+    {% for file in ref_files %}
+    r"{{ file }}",
+    {% endfor %}
+]
+
+myspp = ps.SPPMethod(ifg_files, sam_files, ref_files, {% if skiprows %} skiprows={{ skiprows }}, {%- else %}skiprows=0, {% endif %}
+{% if decimal %}decimal="{{ decimal }}", {%- else %} ".", {% endif %}
+{% if delimiter %}delimiter="{{ delimiter }}", {%- else %} ",", {% endif %}
+{% if meta_len %}meta_len={{ meta_len }} {%- else %} meta_len=0 {% endif %}, 
+{% if eager %}callback=ps.eager_executor(reference_point={{ reference_frequency }}, order={{ order }}, logfile="spp.log", verbosity=1){% endif %})
+{% if detach %}
+for ifg in myspp:
+    {% if chdomain -%}ifg.chdomain(){% endif %}
+    ifg.open_SPP_panel(header="comment")
+{% endif %}
+    "#,
+        );
         tera
     };
 }
@@ -127,8 +166,10 @@ pub fn write_tempfile_with_imports(name: &str, content: &str, path: &str) -> std
     Ok(())
 }
 
-pub fn render_template(
-    file: &str,
+pub fn render_spp_template(
+    ifg_files: &[PathBuf],
+    ref_files: &[PathBuf],
+    sam_files: &[PathBuf],
     path: &str,
     evaluate_options: &EvaluateOptions,
     intermediate_hooks: &IntermediateHooks,
@@ -137,6 +178,72 @@ pub fn render_template(
     is_audit: bool,
 ) -> Result<std::string::String, tera::Error> {
     let mut context = Context::new();
+
+    for (key, entry) in &evaluate_options.number_options {
+        context.insert(key, &entry);
+    }
+
+    for (key, entry) in &evaluate_options.text_options {
+        context.insert(key, &entry);
+    }
+
+    for (key, entry) in &evaluate_options.bool_options {
+        context.insert(key, &entry);
+    }
+
+    let ifgs = ifg_files
+        .iter()
+        .filter_map(|p| p.to_str())
+        .collect::<Vec<&str>>();
+    let refs = ref_files
+        .iter()
+        .filter_map(|p| p.to_str())
+        .collect::<Vec<&str>>();
+    let sams = sam_files
+        .iter()
+        .filter_map(|p| p.to_str())
+        .collect::<Vec<&str>>();
+    // Specials
+    context.insert("ifg_files", &ifgs);
+    context.insert("ref_files", &refs);
+    context.insert("sam_files", &sams);
+    context.insert("verbosity", &verbosity);
+    context.insert("result_file", result_file);
+    context.insert("workdir", &path);
+    context.insert("is_audit", &is_audit);
+
+    // other
+    context.insert(
+        "before_evaluate_triggers",
+        &intermediate_hooks.before_evaluate_triggers,
+    );
+    context.insert(
+        "after_evaluate_triggers",
+        &intermediate_hooks.after_evaluate_triggers,
+    );
+
+    // render as String
+    TEMPLATES.render("spp.py_t", &context)
+}
+
+pub fn render_template(
+    file: &str,
+    path: &str,
+    evaluate_options: &EvaluateOptions,
+    intermediate_hooks: &IntermediateHooks,
+    result_file: &str,
+    verbosity: u8,
+    is_audit: bool,
+    arms: Option<(&PathBuf, &PathBuf)>,
+) -> Result<std::string::String, tera::Error> {
+    let mut context = Context::new();
+
+    if let Some(arms) = arms {
+        let f2 = arms.0.as_path().file_name().unwrap().to_str().unwrap_or("");
+        let f3 = arms.1.as_path().file_name().unwrap().to_str().unwrap_or("");
+        context.insert("filename2", &format!("{}/{}", path, f2));
+        context.insert("filename3", &format!("{}/{}", path, f3));
+    }
 
     for (key, entry) in &evaluate_options.number_options {
         context.insert(key, &entry);

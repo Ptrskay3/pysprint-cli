@@ -2,8 +2,10 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use indicatif::{ProgressBar, ProgressStyle};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use pysprint_cli::{
-    audit::get_files,
-    codegen::{maybe_write_default_yaml, render_template, write_tempfile_with_imports},
+    audit::{get_files, sort_by_arms},
+    codegen::{
+        maybe_write_default_yaml, render_spp_template, render_template, write_tempfile_with_imports,
+    },
     parser::parse,
     python::{exec_py, py_handshake, write_err},
 };
@@ -232,67 +234,167 @@ fn audit(
 
     let files = get_files(filepath, &file_pattern_options).unwrap();
 
-    let bar = ProgressBar::new(files.len() as u64);
-
-    bar.set_style(
-        ProgressStyle::default_bar().template("{prefix:>16.green} [{bar:50}] {pos}/{len} {msg}"),
-    );
-
-    bar.set_prefix("Processing files");
-
-    for file in files.iter() {
-        bar.inc(1);
-
-        // render the code that needs to be executed
-        let code = render_template(
-            file.as_path().file_name().unwrap().to_str().unwrap(),
-            filepath,
-            &evaluate_options,
-            &intermediate_hooks,
-            &result_file,
-            verbosity,
-            true,
-        );
-
-        // write the generated code if needed
-        if persist {
-            let _ = write_tempfile_with_imports(
-                file.as_path().file_stem().unwrap().to_str().unwrap(),
-                code.as_ref().unwrap(),
+    match evaluate_options.text_options["methodname"].as_ref() {
+        "SPPMethod" => {
+            let (ifgs, sams, refs) = sort_by_arms(&files, stdout);
+            let code = render_spp_template(
+                &ifgs,
+                &refs,
+                &sams,
                 filepath,
+                &evaluate_options,
+                &intermediate_hooks,
+                &result_file,
+                verbosity,
+                true,
             );
-        }
 
-        // execute it
-        if let Ok((e, tb)) = exec_py(&code.unwrap(), stdout, true) {
-            if e {
-                counter += 1;
-                traceback.push_str(&format!(
-                    "file: {}\terror: {}\n",
-                    file.as_path()
-                        .file_name()
-                        .unwrap()
-                        .to_str()
-                        .unwrap_or("unknown"),
-                    &tb
-                ));
+            if persist {
+                let _ = write_tempfile_with_imports("spp_eval", code.as_ref().unwrap(), filepath);
+            }
+
+            if let Err(e) = exec_py(&code.unwrap(), stdout, false) {
+                let _ = stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)));
+                let py_error = format!("[ERRO] Python error:\n{:?}", e);
+                if let Err(e) = writeln!(stdout, "{}", py_error) {
+                    println!("Error writing to stdout: {}", e);
+                }
+                let _ = WriteColor::reset(stdout);
             }
         }
-    }
-    bar.finish_with_message("Done.");
-    if counter > 0 {
-        if let Err(e) = writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter) {
-            println!("Error writing to stdout: {:?}", e);
+        "CosFitMethod" => {
+            let (ifgs, sams, refs) = sort_by_arms(&files, stdout);
+
+            let bar = ProgressBar::new(ifgs.len() as u64);
+
+            bar.set_style(
+                ProgressStyle::default_bar()
+                    .template("{prefix:>16.green} [{bar:50}] {pos}/{len} {msg}"),
+            );
+
+            bar.set_prefix("Processing files");
+
+            for (idx, file) in ifgs.iter().enumerate() {
+                bar.inc(1);
+                let code = render_template(
+                    file.as_path().file_name().unwrap().to_str().unwrap(),
+                    filepath,
+                    &evaluate_options,
+                    &intermediate_hooks,
+                    &result_file,
+                    verbosity,
+                    true,
+                    Some((&sams[idx], &refs[idx])),
+                );
+                if persist {
+                    let _ = write_tempfile_with_imports(
+                        file.as_path().file_stem().unwrap().to_str().unwrap(),
+                        code.as_ref().unwrap(),
+                        filepath,
+                    );
+                }
+                // execute it
+                if let Ok((e, tb)) = exec_py(&code.unwrap(), stdout, true) {
+                    if e {
+                        counter += 1;
+                        traceback.push_str(&format!(
+                            "file: {}\terror: {}\n",
+                            file.as_path()
+                                .file_name()
+                                .unwrap()
+                                .to_str()
+                                .unwrap_or("unknown filename"),
+                            &tb
+                        ));
+                    }
+                }
+            }
+            bar.finish_with_message("Done.");
+            if counter > 0 {
+                if let Err(e) =
+                    writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter)
+                {
+                    println!("Error writing to stdout: {:?}", e);
+                }
+                let pb = ProgressBar::new_spinner();
+                let spinner_style = ProgressStyle::default_spinner()
+                    .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+                    .template("{prefix:.bold.dim} {spinner} {wide_msg}");
+                pb.set_style(spinner_style);
+                pb.set_message("Generating report..");
+                pb.enable_steady_tick(40);
+                let _ = write_err(filepath, &traceback);
+                pb.finish_with_message(&format!("Report generated at `{}/errors.log`.", filepath));
+            }
         }
-        let pb = ProgressBar::new_spinner();
-        let spinner_style = ProgressStyle::default_spinner()
-            .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
-            .template("{prefix:.bold.dim} {spinner} {wide_msg}");
-        pb.set_style(spinner_style);
-        pb.set_message("Generating report..");
-        pb.enable_steady_tick(40);
-        let _ = write_err(filepath, &traceback);
-        pb.finish_with_message(&format!("Report generated at `{}/errors.log`.", filepath));
+        _ => {
+            let bar = ProgressBar::new(files.len() as u64);
+
+            bar.set_style(
+                ProgressStyle::default_bar()
+                    .template("{prefix:>16.green} [{bar:50}] {pos}/{len} {msg}"),
+            );
+
+            bar.set_prefix("Processing files");
+
+            for file in files.iter() {
+                bar.inc(1);
+
+                // render the code that needs to be executed
+                let code = render_template(
+                    file.as_path().file_name().unwrap().to_str().unwrap(),
+                    filepath,
+                    &evaluate_options,
+                    &intermediate_hooks,
+                    &result_file,
+                    verbosity,
+                    true,
+                    None,
+                );
+
+                // write the generated code if needed
+                if persist {
+                    let _ = write_tempfile_with_imports(
+                        file.as_path().file_stem().unwrap().to_str().unwrap(),
+                        code.as_ref().unwrap(),
+                        filepath,
+                    );
+                }
+
+                // execute it
+                if let Ok((e, tb)) = exec_py(&code.unwrap(), stdout, true) {
+                    if e {
+                        counter += 1;
+                        traceback.push_str(&format!(
+                            "file: {}\terror: {}\n",
+                            file.as_path()
+                                .file_name()
+                                .unwrap()
+                                .to_str()
+                                .unwrap_or("unknown filename"),
+                            &tb
+                        ));
+                    }
+                }
+            }
+            bar.finish_with_message("Done.");
+            if counter > 0 {
+                if let Err(e) =
+                    writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter)
+                {
+                    println!("Error writing to stdout: {:?}", e);
+                }
+                let pb = ProgressBar::new_spinner();
+                let spinner_style = ProgressStyle::default_spinner()
+                    .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+                    .template("{prefix:.bold.dim} {spinner} {wide_msg}");
+                pb.set_style(spinner_style);
+                pb.set_message("Generating report..");
+                pb.enable_steady_tick(40);
+                let _ = write_err(filepath, &traceback);
+                pb.finish_with_message(&format!("Report generated at `{}/errors.log`.", filepath));
+            }
+        }
     }
 }
 
@@ -344,6 +446,7 @@ fn watch<P: AsRef<Path> + Copy>(
                                         &result_file,
                                         verbosity,
                                         false,
+                                        None,
                                     );
 
                                     // write the generated code if needed
