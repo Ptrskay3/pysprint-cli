@@ -12,7 +12,7 @@ repository = "https://github.com/Ptrskay3/pysprint-cli"
 categories = ["command-line-utilities"]
 
 [dependencies]
-clap = {version = "2.33.3", features = [ "suggestions", "color" ]}
+clap = {version = "2.33.3", features = ["color"]}
 notify = "4.0.12"
 serde = "1.0"
 serde_yaml = "0.8"

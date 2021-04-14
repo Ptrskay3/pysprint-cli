@@ -1,5 +1,6 @@
 #![feature(toowned_clone_into)]
 
+pub mod app;
 pub mod audit;
 pub mod codegen;
 pub mod io;
