@@ -153,6 +153,8 @@ for ifg in myspp:
     ifg.open_SPP_panel(header="comment")
 {% endif %}
 
+myspp.calculate({{ reference_frequency }}, {{ order }}, show_graph=False)
+
 {% for cmd in after_evaluate_triggers %}
 {{ cmd }}
 {% endfor %}

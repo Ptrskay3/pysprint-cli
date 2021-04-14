@@ -28,7 +28,7 @@ pub fn audit(
             let modulo = evaluate_options
                 .number_options
                 .entry("mod".into())
-                .or_insert_with(|| Box::new(1.0));
+                .or_insert(Box::new(1.0));
             match **modulo as i32 {
                 3 => {}
                 1 => {
