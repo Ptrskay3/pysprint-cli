@@ -66,7 +66,7 @@ import sys
 sys.exit("CosFit is not supported in watch mode")
 {% endif %}
 ifg.GD_lookup({{reference_frequency}}, silent=True)
-ifg.optimizer({{reference_frequency}}, {{ order }}, initial_region_ratio=0.05, extend_by=0.05, show_endpoint=False)
+ifg._optimizer({{reference_frequency}}, {{ order }}, initial_region_ratio=0.05, extend_by=0.05, show_endpoint=False, nofigure=True)
 {% elif methodname == "WFTMethod" %}
 ifg.cover(
     {% if windows %}{{ windows }}{% else %}300{% endif %},
@@ -142,11 +142,20 @@ myspp = ps.SPPMethod(ifg_files, sam_files, ref_files, {% if skiprows %} skiprows
 {% if delimiter %}delimiter="{{ delimiter }}", {%- else %} ",", {% endif %}
 {% if meta_len %}meta_len={{ meta_len }} {%- else %} meta_len=0 {% endif %}, 
 {% if eager %}callback=ps.eager_executor(reference_point={{ reference_frequency }}, order={{ order }}, logfile="spp.log", verbosity=1){% endif %})
+
+{% for cmd in before_evaluate_triggers %}
+{{ cmd }}
+{% endfor %}
+
 {% if detach %}
 for ifg in myspp:
     {% if chdomain -%}ifg.chdomain(){% endif %}
     ifg.open_SPP_panel(header="comment")
 {% endif %}
+
+{% for cmd in after_evaluate_triggers %}
+{{ cmd }}
+{% endfor %}
     "#,
         );
         tera
@@ -195,18 +204,21 @@ pub fn render_spp_template(
         .iter()
         .filter_map(|p| p.to_str())
         .collect::<Vec<&str>>();
+
     let refs = ref_files
         .iter()
         .filter_map(|p| p.to_str())
         .collect::<Vec<&str>>();
+
     let sams = sam_files
         .iter()
         .filter_map(|p| p.to_str())
         .collect::<Vec<&str>>();
+
     // Specials
-    context.insert("ifg_files", &ifgs);
-    context.insert("ref_files", &refs);
     context.insert("sam_files", &sams);
+    context.insert("ref_files", &refs);
+    context.insert("ifg_files", &ifgs);
     context.insert("verbosity", &verbosity);
     context.insert("result_file", result_file);
     context.insert("workdir", &path);
@@ -226,7 +238,7 @@ pub fn render_spp_template(
     TEMPLATES.render("spp.py_t", &context)
 }
 
-pub fn render_template(
+pub fn render_generic_template(
     file: &str,
     path: &str,
     evaluate_options: &EvaluateOptions,
@@ -298,6 +310,10 @@ fn write_default_yaml(path: &str) -> std::io::Result<()> {
   - decimal: ","
   - delimiter: ";"
   - meta_len: 6 # lines
+  # - mod: 1 # | 3 | -1
+  # note that this is only available when using audit, and it only
+  # has effect when the method is "cff" or "spp", the other methods
+  # auto-skip files..
 
 preprocess:
 #  - input_unit: "nm"
@@ -306,7 +322,7 @@ preprocess:
 #  - slice_stop: 4 # PHz
 
 method:
-  - wft # | fft | mm
+  - wft # | fft | mm | cff | spp
 
 method_details:
   # globally available options
@@ -326,13 +342,15 @@ method_details:
   # - parallel
 
   # options for -- FFTMethod --
-  # there is no option currently available
+  # no specific options availabe
 
   # options for -- CosFitMethod --
-  # not implemented yet
+  # no specific options availabe
+  # only available in audit
 
   # options for -- SPPMethod --
-  # not implemented yet
+  # - eager
+  # only available in audit
 
 # before_evaluate:
   # - "print('before_evaluate')"

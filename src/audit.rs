@@ -1,105 +1,185 @@
-use crate::parser::FilePatternOptions;
-use std::{ffi::OsStr, fs, io, io::Write, path::PathBuf};
+use crate::codegen::{render_generic_template, render_spp_template, write_tempfile_with_imports};
+use crate::io::get_files;
+use crate::parser::parse;
+use crate::python::{exec_py, py_handshake, write_err};
+use crate::utils::{get_process_bar_with_length, get_spinner, sort_by_arms};
+use std::io::Write;
 use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
-use wildmatch::WildMatch;
 
-pub fn sort_by_arms(
-    files: &[PathBuf],
+pub fn audit(
     stdout: &mut StandardStream,
-) -> (Vec<PathBuf>, Vec<PathBuf>, Vec<PathBuf>) {
-    let mut ifgs = Vec::<PathBuf>::new();
-    let mut sams = Vec::<PathBuf>::new();
-    let mut refs = Vec::<PathBuf>::new();
+    filepath: &str,
+    config_file: &str,
+    result_file: &str,
+    verbosity: u8,
+    persist: bool,
+) {
+    let mut counter = 0;
+    let mut traceback = String::new();
+    let (mut evaluate_options, intermediate_hooks, file_pattern_options) =
+        parse(&format!("{}/{}", filepath, config_file));
 
-    // exclude the hanging files, the arms missmatch somewhere
-    let n = files.len() - files.len() % 3;
-    if n != files.len() {
-        let _ = stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)));
-        let _ = writeln!(
-            stdout,
-            "[WARN] The number of files is not divisible by 3..
-       Maybe you forgot to exclude/include some?"
-        );
-        let _ = WriteColor::reset(stdout);
-    }
-    for file in files.iter().take(n).step_by(3) {
-        ifgs.push(file.to_path_buf());
-    }
-    for file in files.iter().take(n).skip(1).step_by(3) {
-        sams.push(file.to_path_buf());
-    }
-    for file in files.iter().take(n).skip(2).step_by(3) {
-        refs.push(file.to_path_buf());
-    }
-    (ifgs, sams, refs)
-}
+    let _ = py_handshake(stdout);
 
-pub fn get_files(
-    root: &str,
-    file_pattern_options: &FilePatternOptions,
-) -> io::Result<Vec<PathBuf>> {
-    let mut result = vec![];
+    let files = get_files(filepath, &file_pattern_options).unwrap();
+    match evaluate_options.text_options["methodname"].as_ref() {
+        "SPPMethod" => {
+            let (mut ifgs, mut sams, mut refs) = sort_by_arms(&files, stdout);
+            let modulo = evaluate_options
+                .number_options
+                .entry("mod".into())
+                .or_insert_with(|| Box::new(1.0));
+            match **modulo as i32 {
+                3 => {}
+                1 => {
+                    ifgs = files;
+                    sams = vec![];
+                    refs = vec![];
+                }
+                -1 => {
+                    sams = vec![];
+                    refs = vec![];
+                }
+                _ => {
+                    panic!("mod field should be 3, 1 or -1, found {}", modulo);
+                }
+            };
 
-    // TODO: needless collect
+            let code = render_spp_template(
+                &ifgs,
+                &refs,
+                &sams,
+                filepath,
+                &evaluate_options,
+                &intermediate_hooks,
+                &result_file,
+                verbosity,
+                true,
+            );
 
-    // Vec<String> -> Vec<&str> conversion, to be comparable below
-    let ext_as_str_ref = file_pattern_options
-        .extensions
-        .iter()
-        .map(|s| &s[..])
-        .collect::<Vec<&str>>();
+            if persist {
+                let _ = write_tempfile_with_imports("spp_eval", code.as_ref().unwrap(), filepath);
+            }
 
-    let skips_as_str_ref = file_pattern_options
-        .skip_files
-        .iter()
-        .map(|s| &s[..])
-        .collect::<Vec<&str>>();
-
-    for path in fs::read_dir(root)? {
-        let path = path?.path();
-
-        // skip directories, we dont walk recursively at the moment
-        if path.is_dir() {
-            continue;
+            if let Err(e) = exec_py(&code.unwrap(), stdout, false) {
+                let _ = stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)));
+                let py_error = format!("[ERRO] Python error:\n{:?}", e);
+                if let Err(e) = writeln!(stdout, "{}", py_error) {
+                    println!("Error writing to stdout: {}", e);
+                }
+                let _ = WriteColor::reset(stdout);
+            }
         }
-        // early bailout of skip files
-        if skips_as_str_ref.contains(
-            &path
-                .file_name()
-                .and_then(OsStr::to_str)
-                .unwrap_or("__nofilename"),
-        ) {
-            continue;
+        "CosFitMethod" => {
+            let (ifgs, sams, refs) = sort_by_arms(&files, stdout);
+
+            // TODO: grouping
+
+            let bar = get_process_bar_with_length(ifgs.len() as u64);
+
+            for (idx, file) in ifgs.iter().enumerate() {
+                bar.inc(1);
+                let code = render_generic_template(
+                    file.as_path().file_name().unwrap().to_str().unwrap(),
+                    filepath,
+                    &evaluate_options,
+                    &intermediate_hooks,
+                    &result_file,
+                    verbosity,
+                    true,
+                    Some((&sams[idx], &refs[idx])),
+                );
+                if persist {
+                    let _ = write_tempfile_with_imports(
+                        file.as_path().file_stem().unwrap().to_str().unwrap(),
+                        code.as_ref().unwrap(),
+                        filepath,
+                    );
+                }
+                // execute it
+                if let Ok((e, tb)) = exec_py(&code.unwrap(), stdout, true) {
+                    if e {
+                        counter += 1;
+                        traceback.push_str(&format!(
+                            "file: {}\terror: {}\n",
+                            file.as_path()
+                                .file_name()
+                                .unwrap()
+                                .to_str()
+                                .unwrap_or("unknown filename"),
+                            &tb
+                        ));
+                    }
+                }
+            }
+            bar.finish_with_message("Done.");
+            if counter > 0 {
+                if let Err(e) =
+                    writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter)
+                {
+                    println!("Error writing to stdout: {:?}", e);
+                }
+                let pb = get_spinner();
+                pb.set_message("Generating report..");
+                let _ = write_err(filepath, &traceback);
+                pb.finish_with_message(&format!("Report generated at `{}/errors.log`.", filepath));
+            }
         }
-        // pick up files that have the specified extensions
-        if ext_as_str_ref.contains(
-            &path
-                .extension()
-                .and_then(OsStr::to_str)
-                .unwrap_or("__noextension"),
-        ) {
-            result.push(path.to_owned());
+        _ => {
+            let bar = get_process_bar_with_length(files.len() as u64);
+
+            for file in files.iter() {
+                bar.inc(1);
+
+                // render the code that needs to be executed
+                let code = render_generic_template(
+                    file.as_path().file_name().unwrap().to_str().unwrap(),
+                    filepath,
+                    &evaluate_options,
+                    &intermediate_hooks,
+                    &result_file,
+                    verbosity,
+                    true,
+                    None,
+                );
+
+                // write the generated code if needed
+                if persist {
+                    let _ = write_tempfile_with_imports(
+                        file.as_path().file_stem().unwrap().to_str().unwrap(),
+                        code.as_ref().unwrap(),
+                        filepath,
+                    );
+                }
+
+                // execute it
+                if let Ok((e, tb)) = exec_py(&code.unwrap(), stdout, true) {
+                    if e {
+                        counter += 1;
+                        traceback.push_str(&format!(
+                            "file: {}\terror: {}\n",
+                            file.as_path()
+                                .file_name()
+                                .unwrap()
+                                .to_str()
+                                .unwrap_or("unknown filename"),
+                            &tb
+                        ));
+                    }
+                }
+            }
+            bar.finish_with_message("Done.");
+            if counter > 0 {
+                if let Err(e) =
+                    writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter)
+                {
+                    println!("Error writing to stdout: {:?}", e);
+                }
+                let pb = get_spinner();
+                pb.set_message("Generating report..");
+                let _ = write_err(filepath, &traceback);
+                pb.finish_with_message(&format!("Report generated at `{}/errors.log`.", filepath));
+            }
         }
     }
-
-    let exclude_patterns = get_exclude_patterns(file_pattern_options);
-
-    // exclude every file that matches any pre-defined pattern
-    result.retain(|path| {
-        !exclude_patterns
-            .iter()
-            .map(|pattern| pattern.matches(&path.to_str().unwrap()))
-            .any(|op| op)
-    });
-
-    result.sort();
-    Ok(result)
-}
-
-fn get_exclude_patterns(file_pattern_options: &FilePatternOptions) -> Vec<WildMatch> {
-    let mut exclude_patterns: Vec<WildMatch> = Vec::new();
-    for pattern in &file_pattern_options.exclude_patterns {
-        exclude_patterns.push(WildMatch::new(&pattern));
-    }
-    exclude_patterns
 }

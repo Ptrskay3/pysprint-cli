@@ -1,20 +1,7 @@
 use clap::{App, AppSettings, Arg, SubCommand};
-use indicatif::{ProgressBar, ProgressStyle};
-use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
-use pysprint_cli::{
-    audit::{get_files, sort_by_arms},
-    codegen::{
-        maybe_write_default_yaml, render_spp_template, render_template, write_tempfile_with_imports,
-    },
-    parser::parse,
-    python::{exec_py, py_handshake, write_err},
-};
-use std::fs::File;
-use std::io;
+use pysprint_cli::{audit::audit, python::py_handshake, utils::get_startup_options, watch::watch};
 use std::io::Write;
-use std::path::Path;
-use std::time::Duration;
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use termcolor::{ColorChoice, StandardStream};
 
 fn main() {
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
@@ -112,364 +99,41 @@ fn main() {
         )
         .get_matches();
 
-    if let Some(cmd) = matches.subcommand_matches("audit") {
-        let verbosity: u8 = match cmd.occurrences_of("verbosity") {
-            0 => 0,
-            _ => 1,
-        };
-        let persist = cmd.is_present("persist");
-        if let Some(filepath) = cmd.value_of("path") {
-            let config_file = matches.value_of("config").unwrap_or("eval.yaml");
-            let config_filepath = Path::new(&filepath).join(config_file);
-            if !config_filepath.exists() {
-                maybe_write_default_yaml(&filepath);
-            }
-
-            let result_file = cmd.value_of("result").unwrap_or("results.json");
-            let result_filepath = Path::new(&filepath).join(result_file);
-            if !result_file_is_present(&result_filepath, &mut stdout).unwrap_or(true) {
-                create_results_file(&result_filepath.into_os_string().to_str().unwrap()).unwrap();
-            }
-
-            audit(
-                &mut stdout,
-                filepath,
-                config_file,
-                result_file,
-                verbosity,
-                persist,
-            );
-        }
+    if let Some(matches) = matches.subcommand_matches("audit") {
+        let startup_options = get_startup_options(matches, &mut stdout).unwrap();
+        audit(
+            &mut stdout,
+            &startup_options.filepath,
+            &startup_options.config_file,
+            &startup_options.result_file,
+            startup_options.verbosity,
+            startup_options.persist,
+        );
     }
 
     if let Some(matches) = matches.subcommand_matches("watch") {
-        let verbosity: u8 = match matches.occurrences_of("verbosity") {
-            0 => 0,
-            _ => 1,
-        };
-        if let Some(filepath) = matches.value_of("path") {
-            if let Err(e) = writeln!(stdout, "[INFO] PySprint watch mode starting.") {
-                println!("Error writing to stdout: {}", e);
-            }
-            let config_file = matches.value_of("config").unwrap_or("eval.yaml");
-            let config_filepath = Path::new(&filepath).join(config_file);
-            if !config_filepath.exists() {
-                maybe_write_default_yaml(&filepath);
-            }
-            let result_file = matches.value_of("result").unwrap_or("results.json");
-            let result_filepath = Path::new(&filepath).join(result_file);
-            if !result_file_is_present(&result_filepath, &mut stdout).unwrap_or(true) {
-                create_results_file(&result_filepath.into_os_string().to_str().unwrap()).unwrap();
-            }
-
-            let _ = py_handshake(&mut stdout);
-
-            if let Err(e) = writeln!(stdout, "[INFO] Watch started..") {
-                println!("Error writing to stdout: {}", e);
-            }
-
-            if let Err(e) = watch(
-                filepath,
-                config_file,
-                matches.is_present("persist"),
-                result_file,
-                verbosity,
-                &mut stdout,
-            ) {
-                if let Err(e) = writeln!(stdout, "[ERROR] error watching..: {:?}", e) {
-                    println!("Error writing to stdout: {}", e);
-                }
-            }
-        }
-    }
-}
-
-fn result_file_is_present<P: AsRef<Path>>(
-    result_filepath: P,
-    stdout: &mut StandardStream,
-) -> Result<bool, Box<dyn std::error::Error>> {
-    if result_filepath.as_ref().exists() {
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
-        let warning = format!(
-            "[WARN] The result file named {:?} already exists. Its contents might be overwritten.",
-            result_filepath.as_ref()
-        );
-        if let Err(e) = writeln!(stdout, "{}", warning) {
+        if let Err(e) = writeln!(stdout, "[INFO] PySprint watch mode starting.") {
             println!("Error writing to stdout: {}", e);
         }
-        let _ = WriteColor::reset(stdout);
-        Ok(true)
-    } else {
-        if let Err(e) = writeln!(
-            stdout,
-            "[INFO] Created {:?} result file.",
-            result_filepath.as_ref().file_name().unwrap()
+        let startup_options = get_startup_options(matches, &mut stdout).unwrap();
+
+        let _ = py_handshake(&mut stdout);
+
+        if let Err(e) = writeln!(stdout, "[INFO] Watch started..") {
+            println!("Error writing to stdout: {}", e);
+        }
+
+        if let Err(e) = watch(
+            &startup_options.filepath,
+            &startup_options.config_file,
+            startup_options.persist,
+            &startup_options.result_file,
+            startup_options.verbosity,
+            &mut stdout,
         ) {
-            println!("Error writing to stdout: {}", e);
-        }
-        Ok(false)
-    }
-}
-
-fn create_results_file(filename: &str) -> std::io::Result<()> {
-    let mut file = File::create(filename)?;
-    file.write_all(b"{ }")?;
-    Ok(())
-}
-
-fn audit(
-    stdout: &mut StandardStream,
-    filepath: &str,
-    config_file: &str,
-    result_file: &str,
-    verbosity: u8,
-    persist: bool,
-) {
-    let mut counter = 0;
-    let mut traceback = String::new();
-    let (evaluate_options, intermediate_hooks, file_pattern_options) =
-        parse(&format!("{}/{}", filepath, config_file));
-
-    let _ = py_handshake(stdout);
-
-    let files = get_files(filepath, &file_pattern_options).unwrap();
-
-    match evaluate_options.text_options["methodname"].as_ref() {
-        "SPPMethod" => {
-            let (ifgs, sams, refs) = sort_by_arms(&files, stdout);
-            let code = render_spp_template(
-                &ifgs,
-                &refs,
-                &sams,
-                filepath,
-                &evaluate_options,
-                &intermediate_hooks,
-                &result_file,
-                verbosity,
-                true,
-            );
-
-            if persist {
-                let _ = write_tempfile_with_imports("spp_eval", code.as_ref().unwrap(), filepath);
+            if let Err(e) = writeln!(stdout, "[ERROR] error watching..: {:?}", e) {
+                println!("Error writing to stdout: {}", e);
             }
-
-            if let Err(e) = exec_py(&code.unwrap(), stdout, false) {
-                let _ = stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)));
-                let py_error = format!("[ERRO] Python error:\n{:?}", e);
-                if let Err(e) = writeln!(stdout, "{}", py_error) {
-                    println!("Error writing to stdout: {}", e);
-                }
-                let _ = WriteColor::reset(stdout);
-            }
-        }
-        "CosFitMethod" => {
-            let (ifgs, sams, refs) = sort_by_arms(&files, stdout);
-
-            let bar = ProgressBar::new(ifgs.len() as u64);
-
-            bar.set_style(
-                ProgressStyle::default_bar()
-                    .template("{prefix:>16.green} [{bar:50}] {pos}/{len} {msg}"),
-            );
-
-            bar.set_prefix("Processing files");
-
-            for (idx, file) in ifgs.iter().enumerate() {
-                bar.inc(1);
-                let code = render_template(
-                    file.as_path().file_name().unwrap().to_str().unwrap(),
-                    filepath,
-                    &evaluate_options,
-                    &intermediate_hooks,
-                    &result_file,
-                    verbosity,
-                    true,
-                    Some((&sams[idx], &refs[idx])),
-                );
-                if persist {
-                    let _ = write_tempfile_with_imports(
-                        file.as_path().file_stem().unwrap().to_str().unwrap(),
-                        code.as_ref().unwrap(),
-                        filepath,
-                    );
-                }
-                // execute it
-                if let Ok((e, tb)) = exec_py(&code.unwrap(), stdout, true) {
-                    if e {
-                        counter += 1;
-                        traceback.push_str(&format!(
-                            "file: {}\terror: {}\n",
-                            file.as_path()
-                                .file_name()
-                                .unwrap()
-                                .to_str()
-                                .unwrap_or("unknown filename"),
-                            &tb
-                        ));
-                    }
-                }
-            }
-            bar.finish_with_message("Done.");
-            if counter > 0 {
-                if let Err(e) =
-                    writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter)
-                {
-                    println!("Error writing to stdout: {:?}", e);
-                }
-                let pb = ProgressBar::new_spinner();
-                let spinner_style = ProgressStyle::default_spinner()
-                    .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
-                    .template("{prefix:.bold.dim} {spinner} {wide_msg}");
-                pb.set_style(spinner_style);
-                pb.set_message("Generating report..");
-                pb.enable_steady_tick(40);
-                let _ = write_err(filepath, &traceback);
-                pb.finish_with_message(&format!("Report generated at `{}/errors.log`.", filepath));
-            }
-        }
-        _ => {
-            let bar = ProgressBar::new(files.len() as u64);
-
-            bar.set_style(
-                ProgressStyle::default_bar()
-                    .template("{prefix:>16.green} [{bar:50}] {pos}/{len} {msg}"),
-            );
-
-            bar.set_prefix("Processing files");
-
-            for file in files.iter() {
-                bar.inc(1);
-
-                // render the code that needs to be executed
-                let code = render_template(
-                    file.as_path().file_name().unwrap().to_str().unwrap(),
-                    filepath,
-                    &evaluate_options,
-                    &intermediate_hooks,
-                    &result_file,
-                    verbosity,
-                    true,
-                    None,
-                );
-
-                // write the generated code if needed
-                if persist {
-                    let _ = write_tempfile_with_imports(
-                        file.as_path().file_stem().unwrap().to_str().unwrap(),
-                        code.as_ref().unwrap(),
-                        filepath,
-                    );
-                }
-
-                // execute it
-                if let Ok((e, tb)) = exec_py(&code.unwrap(), stdout, true) {
-                    if e {
-                        counter += 1;
-                        traceback.push_str(&format!(
-                            "file: {}\terror: {}\n",
-                            file.as_path()
-                                .file_name()
-                                .unwrap()
-                                .to_str()
-                                .unwrap_or("unknown filename"),
-                            &tb
-                        ));
-                    }
-                }
-            }
-            bar.finish_with_message("Done.");
-            if counter > 0 {
-                if let Err(e) =
-                    writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter)
-                {
-                    println!("Error writing to stdout: {:?}", e);
-                }
-                let pb = ProgressBar::new_spinner();
-                let spinner_style = ProgressStyle::default_spinner()
-                    .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
-                    .template("{prefix:.bold.dim} {spinner} {wide_msg}");
-                pb.set_style(spinner_style);
-                pb.set_message("Generating report..");
-                pb.enable_steady_tick(40);
-                let _ = write_err(filepath, &traceback);
-                pb.finish_with_message(&format!("Report generated at `{}/errors.log`.", filepath));
-            }
-        }
-    }
-}
-
-fn watch<P: AsRef<Path> + Copy>(
-    path: P,
-    config_file: &str,
-    persist: bool,
-    result_file: &str,
-    verbosity: u8,
-    stdout: &mut StandardStream,
-) -> notify::Result<()> {
-    let (tx, rx) = std::sync::mpsc::channel();
-
-    let mut watcher = watcher(tx, Duration::from_millis(100)).unwrap();
-    watcher.watch(path, RecursiveMode::NonRecursive)?;
-
-    // we need to append the filepath to the template, because python also runs from *here*.
-    let fpath = &path.as_ref().to_str().unwrap();
-    let (evaluate_options, intermediate_hooks, file_pattern_options) =
-        parse(&format!("{}/{}", fpath, config_file));
-
-    loop {
-        match rx.recv() {
-            Ok(event) => {
-                match event {
-                    // only trigger on Write and Create events..
-                    DebouncedEvent::Write(e) | DebouncedEvent::Create(e) => {
-                        // get the extension, we need to see whether we care
-                        let ext = &e.extension();
-
-                        match ext {
-                            Some(value) => {
-                                if file_pattern_options
-                                    .extensions
-                                    .contains(&value.to_str().unwrap().to_owned())
-                                {
-                                    // clear terminal on rerun
-                                    print!("\x1B[2J\x1B[1;1H");
-                                    // stdout is frequently line-buffered by default so it is necessary
-                                    // to flush() to ensure the clear above is emitted immediately
-                                    io::stdout().flush().unwrap();
-
-                                    // render the code that needs to be executed
-                                    let code = render_template(
-                                        &e.file_name().unwrap().to_str().unwrap(),
-                                        fpath,
-                                        &evaluate_options,
-                                        &intermediate_hooks,
-                                        &result_file,
-                                        verbosity,
-                                        false,
-                                        None,
-                                    );
-
-                                    // write the generated code if needed
-                                    if persist {
-                                        let _ = write_tempfile_with_imports(
-                                            &e.file_stem().unwrap().to_str().unwrap(),
-                                            code.as_ref().unwrap(),
-                                            fpath,
-                                        );
-                                    }
-
-                                    // execute it
-                                    let _ = exec_py(&code.unwrap(), stdout, false);
-                                }
-                            }
-                            None => {} // if there's no extension, we probably should do nothing
-                        }
-                    }
-                    _ => {} // there is something wrong with the event, probably we also should skip
-                }
-            }
-
-            Err(e) => println!("watch error: {:?}", e),
         }
     }
 }
