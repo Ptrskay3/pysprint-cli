@@ -6,11 +6,15 @@
 
 ![CI](https://github.com/Ptrskay3/pysprint-cli/actions/workflows/ci.yml/badge.svg)
 
-The command line tool for PySprint to evaluate interferograms immediately on record.
+The command line tool for PySprint to boost productivity.
+
+### WARNING!
+
+PySprint-CLI is in very early stages of development, you might find bugs or undefined behaviour.
 
 ### Usage
 
-First, set up an `eval.yaml` file where you will work. This defines the behaviour of the program. The full key and value list will be included soon. Here is an example:
+First, set up an `eval.yaml` file where you will work. PySprint-CLI will optionally generate a default one on demand. That file will define the behaviour of the program. The full key and value list will be included soon. Here is an example:
 
 ```yml
 load_options:
@@ -48,33 +52,24 @@ after_evaluate:
 To start watching a directory, run:
 
 ```shell
-pysprint-cli watch your/path/here
+pysprint-cli watch [your/path/here]
 ```
 
 To run an evaluation on an already existing filebase, run:
 
 ```shell
-pysprint-cli audit your/path/here
+pysprint-cli audit [your/path/here]
 ```
 
 Optionally generated files can be saved with the `--persist` (or `-p` for short) flag.
 
-### TODO!
+### Building from source
 
-- TOP PRIORITY:
+Make sure you have [Rust](https://www.rust-lang.org/tools/install) and [Python 3.6+](https://www.python.org/downloads/) installed.
+You will also need [Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2019).
 
-  - Currently there are lots of duplication around, because I focusen on "getting the job done". Later it should be corrected..
-  - refactor and clean up
-  - add field: disable printing from Python
-  - features for audit + cli integration
+To install locally, navigate to the root directory of the crate, and run:
 
-- method options [partially ok]
-- detach [ok]
-- automock imports
-- termcolor --> color by severity [partially ok]
-- implement audit [partially ok]
-
-- implement method switch [partially ok]
-- custom build steps
-- logging to a common result file [partially ok]
-- sort files by mod 3 [partially ok]
+```shell
+cargo install --path .
+```
