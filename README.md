@@ -14,7 +14,7 @@ PySprint-CLI is in very early stages of development, you might find bugs or unde
 
 ### Usage
 
-First, set up an `eval.yaml` file where you will work. PySprint-CLI will optionally generate a default one on demand. That file will define the behaviour of the program. The full key and value list will be included soon. Here is an example:
+First, set up an `eval.yaml` file where you will work. PySprint-CLI will optionally generate a default one on demand. That file will define the behaviour of the program. Here is an example:
 
 ```yml
 load_options:
@@ -52,13 +52,13 @@ after_evaluate:
 To start watching a directory, run:
 
 ```shell
-pysprint-cli watch [your/path/here]
+psc watch [your/path/here]
 ```
 
 To run an evaluation on an already existing filebase, run:
 
 ```shell
-pysprint-cli audit [your/path/here]
+psc audit [your/path/here]
 ```
 
 Optionally generated files can be saved with the `--persist` (or `-p` for short) flag.

@@ -32,9 +32,3 @@ itertools = "0.10.0"
 
 [dependencies.pyo3]
 version = "0.13.2"
-
-[profile.dev]
-opt-level = 0
-
-[profile.release]
-opt-level = 3

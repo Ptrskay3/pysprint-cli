@@ -1,5 +1,5 @@
 use crate::{audit::audit, python::py_handshake, utils::get_startup_options, watch::watch};
-use clap::{crate_version, App, AppSettings, Arg, SubCommand};
+use clap::{crate_authors, crate_description, crate_version, App, AppSettings, Arg, SubCommand};
 use std::io::Write;
 use termcolor::{ColorChoice, StandardStream};
 
@@ -8,9 +8,11 @@ pub fn launch() {
     let matches = App::new("PySprint-CLI")
         .setting(AppSettings::ColorAlways)
         .version(crate_version!())
-        .author("Péter Leéh")
+        .author(crate_authors!("\n"))
+        .about(crate_description!())
         .subcommand(
             SubCommand::with_name("watch")
+                .about("Watch a directory for changes, immediately rerun on events.")
                 .arg(
                     Arg::with_name("path")
                         .short("p")
@@ -54,6 +56,7 @@ pub fn launch() {
         )
         .subcommand(
             SubCommand::with_name("audit")
+                .about("Evaluate a whole directory of files.")
                 .arg(
                     Arg::with_name("path")
                         .short("p")
