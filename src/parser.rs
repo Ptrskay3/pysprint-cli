@@ -20,6 +20,16 @@ pub struct FilePatternOptions {
     pub extensions: Vec<String>,
 }
 
+// TODO: use this instead of plain &str
+#[derive(Clone, Copy, Debug)]
+pub enum Method {
+    CosFitMethod,
+    MinMaxMethod,
+    FFTMethod,
+    WFTMethod,
+    SPPMethod,
+}
+
 fn read_yaml(file: &str) -> Result<serde_yaml::Value, Box<dyn std::error::Error>> {
     let f = std::fs::File::open(file)?;
     Ok(serde_yaml::from_reader(f)?)
@@ -181,6 +191,15 @@ pub fn parse(file: &str) -> (EvaluateOptions, IntermediateHooks, FilePatternOpti
             }
         }
     }
+
+    // needed in template, so just setup default values
+    // we don't require these fields to be present..
+    bool_options
+        .entry("no_comment_check".into())
+        .or_insert_with(|| Box::new(false));
+    text_options
+        .entry("input_unit".into())
+        .or_insert_with(|| String::from("nm"));
 
     (
         EvaluateOptions {

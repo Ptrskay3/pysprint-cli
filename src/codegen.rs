@@ -27,6 +27,7 @@ lazy_static! {
 {% if meta_len %} meta_len={{ meta_len }} {%- else %} meta_len=0 {% endif %}
 )
 
+{% if not no_comment_check %}
 SKIP_IF = ("ref", "sam", "reference", "sample", "noeval")
 
 for entry in SKIP_IF:
@@ -36,7 +37,14 @@ for entry in SKIP_IF:
             sys.exit(f"file skipped due to user comment contains `{entry}`.")
     except KeyError:
         pass
-
+{% endif %}
+{% if input_unit != "nm" %}
+{% if chdomain %}
+ifg.chrange("{{ input_unit }}", "nm")
+{% else %}
+ifg.chrange("{{ input_unit }}", "phz")
+{% endif %}
+{% endif %}
 {% if chdomain -%} ifg.chdomain() {%- endif %}
 
 {% if slice_start and slice_stop -%} ifg.slice({{ slice_start }}, {{ slice_stop }}){%- endif %}
@@ -46,7 +54,7 @@ for entry in SKIP_IF:
 x_before_transform = np.copy(ifg.x)
 y_before_transform = np.copy(ifg.y_norm)
 
-{%if detach %}
+{%if plot %}
 ifg.plot()
 plt.show(block=True)
 {% endif %}
@@ -59,7 +67,7 @@ plt.show(block=True)
 {% if methodname == "FFTMethod" %}
 import warnings
 warnings.simplefilter("ignore")
-ifg.autorun({{ reference_frequency }}, {{ order }}, show_graph=False, enable_printing=False)
+ifg.autorun({{ reference_frequency }}, {{ order }}, show_graph=False, enable_printing={% if is_audit %}False{% else %}True{% endif %})
 {% elif methodname == "CosFitMethod" %}
 {% if not is_audit %}
 import sys
@@ -248,14 +256,18 @@ pub fn render_generic_template(
     result_file: &str,
     verbosity: u8,
     is_audit: bool,
-    arms: Option<(&PathBuf, &PathBuf)>,
+    sam_arm: Option<&PathBuf>,
+    ref_arm: Option<&PathBuf>,
 ) -> Result<std::string::String, tera::Error> {
     let mut context = Context::new();
 
-    if let Some(arms) = arms {
-        let f2 = arms.0.as_path().file_name().unwrap().to_str().unwrap_or("");
-        let f3 = arms.1.as_path().file_name().unwrap().to_str().unwrap_or("");
+    if let Some(arm) = sam_arm {
+        let f2 = arm.as_path().file_name().unwrap().to_str().unwrap_or("");
         context.insert("filename2", &format!("{}/{}", path, f2));
+    }
+
+    if let Some(arm) = ref_arm {
+        let f3 = arm.as_path().file_name().unwrap().to_str().unwrap_or("");
         context.insert("filename3", &format!("{}/{}", path, f3));
     }
 
@@ -314,12 +326,16 @@ fn write_default_yaml(path: &str) -> std::io::Result<()> {
   - meta_len: 6 # lines
   # - mod: 1 # | 3 | -1
   # note that this is only available when using audit, and it only
-  # has effect when the method is "cff" or "spp", the other methods
+  # has effect when the method is "cff", "mm" or "spp", the other methods
   # auto-skip files..
+  # - no_comment_check: true
+  # By default an evaluation will be skipped if the user comment contains one of
+  # `noeval`, `sam`, `sample`, `ref` or `reference`.
+  # This option turns that metadata checking off.
 
 preprocess:
-#  - input_unit: "nm"
   - chdomain: true
+#  - input_unit: "nm"
 #  - slice_start: 2 # PHz
 #  - slice_stop: 4 # PHz
 
@@ -328,8 +344,8 @@ method:
 
 method_details:
   # globally available options
-  # - only_phase
-  # - detach
+  # - only_phase # TODO field
+  # - plot
 
   # options for -- MinMaxMethod --
   # - min
@@ -352,17 +368,20 @@ method_details:
 
   # options for -- SPPMethod --
   # - eager
+  # - detach
   # only available in audit
 
 # before_evaluate:
   # - "print('before_evaluate')"
+  # - "print('you have access to the `ifg` variable')"
+  # - "print(f'and this is it now: {ifg}')"
 
 evaluate:
   - reference_frequency: 2.355 # PHz
   - order: 3 # up to TOD
 
 # after_evaluate:
-  # - "print('and after..')"
+  # - "print('and after evaluate too..')"
 
 "#
         .as_bytes(),
@@ -372,8 +391,7 @@ evaluate:
 
 pub fn maybe_write_default_yaml(path: &str) {
     println!(
-        "[INFO] No `eval.yaml` file was detected in the target path. 
-       If you named it something different, use the `-c` option.
+        "[INFO] There is no config file detected in the target path.
        Type 'y' or 'yes' if you want to generate a default one, or anything else to quit."
     );
 

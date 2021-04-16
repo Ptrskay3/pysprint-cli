@@ -1,5 +1,5 @@
 use crate::{audit::audit, python::py_handshake, utils::get_startup_options, watch::watch};
-use clap::{App, AppSettings, Arg, SubCommand};
+use clap::{crate_version, App, AppSettings, Arg, SubCommand};
 use std::io::Write;
 use termcolor::{ColorChoice, StandardStream};
 
@@ -7,10 +7,8 @@ pub fn launch() {
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
     let matches = App::new("PySprint-CLI")
         .setting(AppSettings::ColorAlways)
-        .setting(AppSettings::ColoredHelp)
-        .version("0.29.0")
+        .version(crate_version!())
         .author("Péter Leéh")
-        .help("PySprint watching engine for interferogram evaluation")
         .subcommand(
             SubCommand::with_name("watch")
                 .arg(
@@ -124,12 +122,12 @@ pub fn launch() {
         }
 
         if let Err(e) = watch(
+            &mut stdout,
             &startup_options.filepath,
             &startup_options.config_file,
-            startup_options.persist,
             &startup_options.result_file,
             startup_options.verbosity,
-            &mut stdout,
+            startup_options.persist,
         ) {
             if let Err(e) = writeln!(stdout, "[ERROR] error watching..: {:?}", e) {
                 println!("Error writing to stdout: {}", e);

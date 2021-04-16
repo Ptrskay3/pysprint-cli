@@ -31,6 +31,13 @@ pub fn get_startup_options(
         let config_file = matches.value_of("config").unwrap_or("eval.yaml");
         let config_filepath = Path::new(&filepath).join(config_file);
         if !config_filepath.exists() {
+            let _ = stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)));
+            let _ = writeln!(
+                stdout,
+                "[WARN] File named {:?} currently doesn't exist.",
+                config_filepath
+            );
+            let _ = WriteColor::reset(stdout);
             maybe_write_default_yaml(&filepath);
         }
 

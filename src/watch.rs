@@ -10,12 +10,12 @@ use std::{io, io::Write};
 use termcolor::StandardStream;
 
 pub fn watch<P: AsRef<Path> + Copy>(
+    stdout: &mut StandardStream,
     path: P,
     config_file: &str,
-    persist: bool,
     result_file: &str,
     verbosity: u8,
-    stdout: &mut StandardStream,
+    persist: bool,
 ) -> notify::Result<()> {
     let (tx, rx) = std::sync::mpsc::channel();
 
@@ -26,6 +26,13 @@ pub fn watch<P: AsRef<Path> + Copy>(
     let fpath = &path.as_ref().to_str().unwrap();
     let (evaluate_options, intermediate_hooks, file_pattern_options) =
         parse(&format!("{}/{}", fpath, config_file));
+
+    match evaluate_options.text_options["methodname"].as_ref() {
+        "CosFitMethod" | "SPPMethod" => {
+            panic!("CosFitMethod and SPPMethod are not supported in watch mode.");
+        }
+        _ => {}
+    }
 
     loop {
         match rx.recv() {
@@ -57,6 +64,7 @@ pub fn watch<P: AsRef<Path> + Copy>(
                                         &result_file,
                                         verbosity,
                                         false,
+                                        None,
                                         None,
                                     );
 

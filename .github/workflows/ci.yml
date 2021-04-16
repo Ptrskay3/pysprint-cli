@@ -80,5 +80,5 @@ jobs:
       - name: Install python test dependencies
         run: python -m pip install -U pip pysprint
 
-      - name: Example run
+      - name: The crate does compile [Smoke test]
         run: cargo run -- -h

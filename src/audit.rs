@@ -3,6 +3,7 @@ use crate::io::get_files;
 use crate::parser::parse;
 use crate::python::{exec_py, py_handshake, write_err};
 use crate::utils::{get_process_bar_with_length, get_spinner, sort_by_arms};
+use itertools::izip;
 use std::io::Write;
 use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
 
@@ -28,7 +29,7 @@ pub fn audit(
             let modulo = evaluate_options
                 .number_options
                 .entry("mod".into())
-                .or_insert(Box::new(1.0));
+                .or_insert_with(|| Box::new(1.0));
             match **modulo as i32 {
                 3 => {}
                 1 => {
@@ -70,60 +71,186 @@ pub fn audit(
                 let _ = WriteColor::reset(stdout);
             }
         }
-        "CosFitMethod" => {
+        "CosFitMethod" | "MinMaxMethod" => {
             let (ifgs, sams, refs) = sort_by_arms(&files, stdout);
 
-            // TODO: grouping
+            let modulo = evaluate_options
+                .number_options
+                .entry("mod".into())
+                .or_insert_with(|| Box::new(1.0));
 
-            let bar = get_process_bar_with_length(ifgs.len() as u64);
+            // TODO: this is a really ugly, almost copy-paste match statement
+            // there must be a way to solve this elegantly..
+            match **modulo as i32 {
+                3 => {
+                    let bar = get_process_bar_with_length(ifgs.len() as u64);
 
-            for (idx, file) in ifgs.iter().enumerate() {
-                bar.inc(1);
-                let code = render_generic_template(
-                    file.as_path().file_name().unwrap().to_str().unwrap(),
-                    filepath,
-                    &evaluate_options,
-                    &intermediate_hooks,
-                    &result_file,
-                    verbosity,
-                    true,
-                    Some((&sams[idx], &refs[idx])),
-                );
-                if persist {
-                    let _ = write_tempfile_with_imports(
-                        file.as_path().file_stem().unwrap().to_str().unwrap(),
-                        code.as_ref().unwrap(),
-                        filepath,
-                    );
-                }
-                // execute it
-                if let Ok((e, tb)) = exec_py(&code.unwrap(), stdout, true) {
-                    if e {
-                        counter += 1;
-                        traceback.push_str(&format!(
-                            "file: {}\terror: {}\n",
-                            file.as_path()
-                                .file_name()
-                                .unwrap()
-                                .to_str()
-                                .unwrap_or("unknown filename"),
-                            &tb
+                    for (file, sam_, ref_) in izip!(&ifgs, &sams, &refs) {
+                        bar.inc(1);
+                        let code = render_generic_template(
+                            file.as_path().file_name().unwrap().to_str().unwrap(),
+                            filepath,
+                            &evaluate_options,
+                            &intermediate_hooks,
+                            &result_file,
+                            verbosity,
+                            true,
+                            Some(&sam_),
+                            Some(&ref_),
+                        );
+                        if persist {
+                            let _ = write_tempfile_with_imports(
+                                file.as_path().file_stem().unwrap().to_str().unwrap(),
+                                code.as_ref().unwrap(),
+                                filepath,
+                            );
+                        }
+                        // execute it
+                        if let Ok((e, tb)) = exec_py(&code.unwrap(), stdout, true) {
+                            if e {
+                                counter += 1;
+                                traceback.push_str(&format!(
+                                    "file: {}\terror: {}\n",
+                                    file.as_path()
+                                        .file_name()
+                                        .unwrap()
+                                        .to_str()
+                                        .unwrap_or("unknown filename"),
+                                    &tb
+                                ));
+                            }
+                        }
+                    }
+                    bar.finish_with_message("Done.");
+                    if counter > 0 {
+                        if let Err(e) =
+                            writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter)
+                        {
+                            println!("Error writing to stdout: {:?}", e);
+                        }
+                        let pb = get_spinner();
+                        pb.set_message("Generating report..");
+                        let _ = write_err(filepath, &traceback);
+                        pb.finish_with_message(&format!(
+                            "Report generated at `{}/errors.log`.",
+                            filepath
                         ));
                     }
                 }
-            }
-            bar.finish_with_message("Done.");
-            if counter > 0 {
-                if let Err(e) =
-                    writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter)
-                {
-                    println!("Error writing to stdout: {:?}", e);
+                1 => {
+                    let bar = get_process_bar_with_length(files.len() as u64);
+
+                    for file in &files {
+                        bar.inc(1);
+                        let code = render_generic_template(
+                            file.as_path().file_name().unwrap().to_str().unwrap(),
+                            filepath,
+                            &evaluate_options,
+                            &intermediate_hooks,
+                            &result_file,
+                            verbosity,
+                            true,
+                            None,
+                            None,
+                        );
+                        if persist {
+                            let _ = write_tempfile_with_imports(
+                                file.as_path().file_stem().unwrap().to_str().unwrap(),
+                                code.as_ref().unwrap(),
+                                filepath,
+                            );
+                        }
+                        // execute it
+                        if let Ok((e, tb)) = exec_py(&code.unwrap(), stdout, true) {
+                            if e {
+                                counter += 1;
+                                traceback.push_str(&format!(
+                                    "file: {}\terror: {}\n",
+                                    file.as_path()
+                                        .file_name()
+                                        .unwrap()
+                                        .to_str()
+                                        .unwrap_or("unknown filename"),
+                                    &tb
+                                ));
+                            }
+                        }
+                    }
+                    bar.finish_with_message("Done.");
+                    if counter > 0 {
+                        if let Err(e) =
+                            writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter)
+                        {
+                            println!("Error writing to stdout: {:?}", e);
+                        }
+                        let pb = get_spinner();
+                        pb.set_message("Generating report..");
+                        let _ = write_err(filepath, &traceback);
+                        pb.finish_with_message(&format!(
+                            "Report generated at `{}/errors.log`.",
+                            filepath
+                        ));
+                    }
                 }
-                let pb = get_spinner();
-                pb.set_message("Generating report..");
-                let _ = write_err(filepath, &traceback);
-                pb.finish_with_message(&format!("Report generated at `{}/errors.log`.", filepath));
-            }
+                -1 => {
+                    let bar = get_process_bar_with_length(ifgs.len() as u64);
+
+                    for file in &ifgs {
+                        bar.inc(1);
+                        let code = render_generic_template(
+                            file.as_path().file_name().unwrap().to_str().unwrap(),
+                            filepath,
+                            &evaluate_options,
+                            &intermediate_hooks,
+                            &result_file,
+                            verbosity,
+                            true,
+                            None,
+                            None,
+                        );
+                        if persist {
+                            let _ = write_tempfile_with_imports(
+                                file.as_path().file_stem().unwrap().to_str().unwrap(),
+                                code.as_ref().unwrap(),
+                                filepath,
+                            );
+                        }
+                        // execute it
+                        if let Ok((e, tb)) = exec_py(&code.unwrap(), stdout, true) {
+                            if e {
+                                counter += 1;
+                                traceback.push_str(&format!(
+                                    "file: {}\terror: {}\n",
+                                    file.as_path()
+                                        .file_name()
+                                        .unwrap()
+                                        .to_str()
+                                        .unwrap_or("unknown filename"),
+                                    &tb
+                                ));
+                            }
+                        }
+                    }
+                    bar.finish_with_message("Done.");
+                    if counter > 0 {
+                        if let Err(e) =
+                            writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter)
+                        {
+                            println!("Error writing to stdout: {:?}", e);
+                        }
+                        let pb = get_spinner();
+                        pb.set_message("Generating report..");
+                        let _ = write_err(filepath, &traceback);
+                        pb.finish_with_message(&format!(
+                            "Report generated at `{}/errors.log`.",
+                            filepath
+                        ));
+                    }
+                }
+                _ => {
+                    panic!("mod field should be 3, 1 or -1, found {}", modulo);
+                }
+            };
         }
         _ => {
             let bar = get_process_bar_with_length(files.len() as u64);
@@ -140,6 +267,7 @@ pub fn audit(
                     &result_file,
                     verbosity,
                     true,
+                    None,
                     None,
                 );
 

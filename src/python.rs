@@ -1,4 +1,4 @@
-use indicatif::{ProgressBar, ProgressStyle};
+use crate::utils::get_spinner;
 use pyo3::ffi;
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
@@ -10,14 +10,8 @@ use widestring::WideCString;
 /// Check if we're able to start a Python interpreter,
 /// and fail early if we can't.
 pub fn py_handshake(stdout: &mut StandardStream) {
-    // setup the spinner
-    let pb = ProgressBar::new_spinner();
-    let spinner_style = ProgressStyle::default_spinner()
-        .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
-        .template("{prefix:.bold.dim} {spinner} {wide_msg}");
-    pb.set_style(spinner_style);
+    let pb = get_spinner();
     pb.set_message("Waking up the Python interpreter..");
-    pb.enable_steady_tick(40);
 
     // A quick check whether Python is ready.
     if exec_py("True", stdout, false).is_err() {
