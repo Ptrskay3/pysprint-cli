@@ -1,3 +1,4 @@
+#![warn(rust_2018_idioms)]
 #![feature(toowned_clone_into)]
 
 pub mod app;
