@@ -23,13 +23,13 @@ pub fn get_files(
         .extensions
         .iter()
         .map(|s| &s[..])
-        .collect::<Vec<&str>>();
+        .collect::<Vec<_>>();
 
     let skips_as_str_ref = file_pattern_options
         .skip_files
         .iter()
         .map(|s| &s[..])
-        .collect::<Vec<&str>>();
+        .collect::<Vec<_>>();
 
     for path in fs::read_dir(root)? {
         let path = path?.path();

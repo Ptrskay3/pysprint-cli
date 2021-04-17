@@ -1,11 +1,55 @@
 use crate::{audit::audit, python::py_handshake, utils::get_startup_options, watch::watch};
-use clap::{crate_authors, crate_description, crate_version, App, AppSettings, Arg, SubCommand};
+use clap::{
+    crate_authors, crate_description, crate_version, App, AppSettings, Arg, ArgMatches, SubCommand,
+};
 use std::io::Write;
 use termcolor::{ColorChoice, StandardStream};
 
 pub fn launch() {
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
-    let matches = App::new("PySprint-CLI")
+    let matches = start_app_and_get_matches();
+
+    if let Some(matches) = matches.subcommand_matches("audit") {
+        let startup_options = get_startup_options(matches, &mut stdout).unwrap();
+        audit(
+            &mut stdout,
+            &startup_options.filepath,
+            &startup_options.config_file,
+            &startup_options.result_file,
+            startup_options.verbosity,
+            startup_options.persist,
+        );
+    }
+
+    if let Some(matches) = matches.subcommand_matches("watch") {
+        if let Err(e) = writeln!(stdout, "[INFO] PySprint watch mode starting.") {
+            println!("Error writing to stdout: {}", e);
+        }
+        let startup_options = get_startup_options(matches, &mut stdout).unwrap();
+
+        let _ = py_handshake(&mut stdout);
+
+        if let Err(e) = writeln!(stdout, "[INFO] Watch started..") {
+            println!("Error writing to stdout: {}", e);
+        }
+
+        if let Err(e) = watch(
+            &mut stdout,
+            &startup_options.filepath,
+            &startup_options.config_file,
+            &startup_options.result_file,
+            startup_options.verbosity,
+            startup_options.persist,
+        ) {
+            if let Err(e) = writeln!(stdout, "[ERROR] error watching..: {:?}", e) {
+                println!("Error writing to stdout: {}", e);
+            }
+        }
+    }
+}
+
+fn start_app_and_get_matches() -> ArgMatches<'static> {
+    App::new("PySprint-CLI")
         .setting(AppSettings::ColorAlways)
         .version(crate_version!())
         .author(crate_authors!("\n"))
@@ -98,43 +142,10 @@ pub fn launch() {
                         .takes_value(true),
                 ),
         )
-        .get_matches();
+        .get_matches()
+}
 
-    if let Some(matches) = matches.subcommand_matches("audit") {
-        let startup_options = get_startup_options(matches, &mut stdout).unwrap();
-        audit(
-            &mut stdout,
-            &startup_options.filepath,
-            &startup_options.config_file,
-            &startup_options.result_file,
-            startup_options.verbosity,
-            startup_options.persist,
-        );
-    }
-
-    if let Some(matches) = matches.subcommand_matches("watch") {
-        if let Err(e) = writeln!(stdout, "[INFO] PySprint watch mode starting.") {
-            println!("Error writing to stdout: {}", e);
-        }
-        let startup_options = get_startup_options(matches, &mut stdout).unwrap();
-
-        let _ = py_handshake(&mut stdout);
-
-        if let Err(e) = writeln!(stdout, "[INFO] Watch started..") {
-            println!("Error writing to stdout: {}", e);
-        }
-
-        if let Err(e) = watch(
-            &mut stdout,
-            &startup_options.filepath,
-            &startup_options.config_file,
-            &startup_options.result_file,
-            startup_options.verbosity,
-            startup_options.persist,
-        ) {
-            if let Err(e) = writeln!(stdout, "[ERROR] error watching..: {:?}", e) {
-                println!("Error writing to stdout: {}", e);
-            }
-        }
-    }
+#[test]
+fn app_is_valid() {
+    launch();
 }
