@@ -76,6 +76,11 @@ matrix:
     #   os: osx
     #   rust: nightly
 
+addons:
+  apt:
+    packages:
+      - python3
+
 before_install:
   - set -e
   - rustup self update
