@@ -96,6 +96,12 @@ fn start_app_and_get_matches() -> ArgMatches<'static> {
                         .help("increase the verbosity level of results")
                         .multiple(true)
                         .takes_value(false),
+                )
+                .arg(
+                    Arg::with_name("override")
+                        .long("override")
+                        .help("whether to override existing result file")
+                        .takes_value(false),
                 ),
         )
         .subcommand(
@@ -140,6 +146,12 @@ fn start_app_and_get_matches() -> ArgMatches<'static> {
                         .value_name("CONFIG")
                         .help("the config file to use")
                         .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("override")
+                        .long("override")
+                        .help("whether to override existing result file")
+                        .takes_value(false),
                 ),
         )
         .get_matches()

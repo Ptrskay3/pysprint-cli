@@ -43,9 +43,41 @@ pub fn get_startup_options(
 
         let result_file = matches.value_of("result").unwrap_or("results.json");
         let result_filepath = Path::new(&filepath).join(result_file);
-        if !result_file_is_present(&result_filepath, stdout).unwrap_or(true) {
+        if matches.is_present("override") {
+            if result_filepath.exists() {
+                let _ = writeln!(
+                    stdout,
+                    "[INFO] Overriding result file at {:?}.",
+                    &result_filepath
+                );
+            } else if let Err(e) = writeln!(
+                stdout,
+                "[INFO] Created {:?} result file.",
+                result_filepath.to_str().unwrap()
+            ) {
+                println!("Error writing to stdout: {}", e);
+            }
             create_results_file(&result_filepath.into_os_string().to_str().unwrap()).unwrap();
+        } else if !result_file_is_present(&result_filepath, stdout).unwrap_or(true) {
+            create_results_file(&result_filepath.into_os_string().to_str().unwrap()).unwrap();
+        } else {
+            let _ = writeln!(
+                stdout,
+                "[INFO] Type 'yes' or 'y' to override it, or anything else to quit.",
+            );
+            if maybe_override_results_file() {
+                create_results_file(&result_filepath.clone().into_os_string().to_str().unwrap())
+                    .unwrap();
+                let _ = writeln!(
+                    stdout,
+                    "[INFO] Result file overridden at {:?}.",
+                    &result_filepath.to_str().unwrap()
+                );
+            } else {
+                panic!("failed to find a writeable result file.");
+            }
         }
+
         return Some(StartupOptions {
             filepath: filepath.into(),
             config_file: config_file.into(),
@@ -64,7 +96,7 @@ pub fn result_file_is_present<P: AsRef<Path>>(
     if result_filepath.as_ref().exists() {
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
         let warning = format!(
-            "[WARN] The result file named {:?} already exists. Its contents might be overwritten.",
+            "[WARN] The result file named {:?} already exists.",
             result_filepath.as_ref()
         );
         if let Err(e) = writeln!(stdout, "{}", warning) {
@@ -140,4 +172,13 @@ pub fn sort_by_arms(
         refs.push(file.to_path_buf());
     }
     (ifgs, sams, refs)
+}
+
+pub fn maybe_override_results_file() -> bool {
+    let mut input_text = String::new();
+    std::io::stdin()
+        .read_line(&mut input_text)
+        .expect("failed to read from stdin");
+
+    matches!(input_text.to_lowercase().trim(), "yes" | "y")
 }

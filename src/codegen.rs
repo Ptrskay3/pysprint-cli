@@ -403,7 +403,7 @@ pub fn maybe_write_default_yaml(path: &str) {
     match input_text.to_lowercase().trim() {
         "yes" | "y" => {
             let _r = write_default_yaml(path);
-            println!("[INFO] Created `eval.yaml` config file.");
+            println!("[INFO] Created 'eval.yaml' config file.");
         }
         _ => {}
     };
