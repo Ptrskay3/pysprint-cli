@@ -1,4 +1,5 @@
 use crate::codegen::{render_generic_template, render_spp_template, write_tempfile_with_imports};
+use crate::deserialize::{MethodType, _Mod};
 use crate::io::get_files;
 use crate::parser::parse;
 use crate::python::{exec_py, py_handshake, write_err};
@@ -17,32 +18,28 @@ pub fn audit(
 ) {
     let mut counter = 0;
     let mut traceback = String::new();
-    let (mut evaluate_options, intermediate_hooks, file_pattern_options) =
-        parse(&format!("{}/{}", filepath, config_file));
+    let config = parse(&format!("{}/{}", filepath, config_file)).unwrap();
 
     let _ = py_handshake(stdout);
 
-    let files = get_files(filepath, &file_pattern_options).unwrap();
-    match evaluate_options.text_options["methodname"].as_ref() {
-        "SPPMethod" => {
+    let files = get_files(filepath, &config.load_options).unwrap();
+    match &config.method {
+        MethodType::SPPMethod => {
             let (mut ifgs, mut sams, mut refs) = sort_by_arms(&files, stdout);
-            let modulo = evaluate_options
-                .number_options
-                .entry("mod".into())
-                .or_insert_with(|| Box::new(1.0));
-            match **modulo as i32 {
-                3 => {}
-                1 => {
+            let modulo = config.load_options._mod;
+            match modulo.unwrap() {
+                _Mod(3) => {}
+                _Mod(1) => {
                     ifgs = files;
                     sams = vec![];
                     refs = vec![];
                 }
-                -1 => {
+                _Mod(-1) => {
                     sams = vec![];
                     refs = vec![];
                 }
                 _ => {
-                    panic!("mod field should be 3, 1 or -1, found {}", modulo);
+                    panic!("mod field should be 3, 1 or -1, found {:?}", modulo);
                 }
             };
 
@@ -51,8 +48,7 @@ pub fn audit(
                 &refs,
                 &sams,
                 filepath,
-                &evaluate_options,
-                &intermediate_hooks,
+                &config,
                 &result_file,
                 verbosity,
                 true,
@@ -71,18 +67,15 @@ pub fn audit(
                 let _ = WriteColor::reset(stdout);
             }
         }
-        "CosFitMethod" | "MinMaxMethod" => {
+        MethodType::CosFitMethod | MethodType::MinMaxMethod => {
             let (ifgs, sams, refs) = sort_by_arms(&files, stdout);
 
-            let modulo = evaluate_options
-                .number_options
-                .entry("mod".into())
-                .or_insert_with(|| Box::new(1.0));
+            let modulo = &config.load_options._mod;
 
             // TODO: this is a really ugly, almost copy-paste match statement
             // there must be a way to solve this elegantly..
-            match **modulo as i32 {
-                3 => {
+            match modulo.unwrap() {
+                _Mod(3) => {
                     let bar = get_process_bar_with_length(ifgs.len() as u64);
 
                     for (file, sam_, ref_) in izip!(&ifgs, &sams, &refs) {
@@ -90,8 +83,7 @@ pub fn audit(
                         let code = render_generic_template(
                             file.as_path().file_name().unwrap().to_str().unwrap(),
                             filepath,
-                            &evaluate_options,
-                            &intermediate_hooks,
+                            &config,
                             &result_file,
                             verbosity,
                             true,
@@ -137,7 +129,7 @@ pub fn audit(
                         ));
                     }
                 }
-                1 => {
+                _Mod(1) => {
                     let bar = get_process_bar_with_length(files.len() as u64);
 
                     for file in &files {
@@ -145,8 +137,7 @@ pub fn audit(
                         let code = render_generic_template(
                             file.as_path().file_name().unwrap().to_str().unwrap(),
                             filepath,
-                            &evaluate_options,
-                            &intermediate_hooks,
+                            &config,
                             &result_file,
                             verbosity,
                             true,
@@ -192,7 +183,7 @@ pub fn audit(
                         ));
                     }
                 }
-                -1 => {
+                _Mod(-1) => {
                     let bar = get_process_bar_with_length(ifgs.len() as u64);
 
                     for file in &ifgs {
@@ -200,8 +191,7 @@ pub fn audit(
                         let code = render_generic_template(
                             file.as_path().file_name().unwrap().to_str().unwrap(),
                             filepath,
-                            &evaluate_options,
-                            &intermediate_hooks,
+                            &config,
                             &result_file,
                             verbosity,
                             true,
@@ -248,7 +238,7 @@ pub fn audit(
                     }
                 }
                 _ => {
-                    panic!("mod field should be 3, 1 or -1, found {}", modulo);
+                    panic!("mod field should be 3, 1 or -1, found {:?}", modulo);
                 }
             };
         }
@@ -262,8 +252,7 @@ pub fn audit(
                 let code = render_generic_template(
                     file.as_path().file_name().unwrap().to_str().unwrap(),
                     filepath,
-                    &evaluate_options,
-                    &intermediate_hooks,
+                    &config,
                     &result_file,
                     verbosity,
                     true,

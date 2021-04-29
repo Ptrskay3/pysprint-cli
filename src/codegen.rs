@@ -1,10 +1,10 @@
-use crate::parser::{EvaluateOptions, IntermediateHooks};
+use crate::deserialize::Config;
 use lazy_static::lazy_static;
 use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 use tempfile::Builder;
-use tera::{Context, Tera};
+use tera::Tera;
 
 const IMPORT_HEADERS: &str = r#"import numpy as np
 import pysprint as ps
@@ -60,8 +60,8 @@ plt.show(block=True)
 {% endif %}
 
 
-{% for cmd in before_evaluate_triggers %}
-{{ cmd }}
+{% for cmd in bet %}
+{{ cmd -}}
 {% endfor %}
 
 {% if methodname == "FFTMethod" %}
@@ -121,27 +121,29 @@ plt.show(block=True)
 fragment = ps.utils._prepare_json_fragment(ifg, "{{ filename_raw }}", x_before_transform, y_before_transform, verbosity={{ verbosity }})
 ps.utils._write_or_update_json_fragment("{{ workdir }}/{{ result_file }}", fragment, "{{ filename_raw }}")
 
-{% for cmd in after_evaluate_triggers %}
-{{ cmd }}
-{% endfor %}"#,
+{#
+{% for cmd in aet %}
+{{ cmd -}}
+{% endfor %}
+#}"#,
         );
         let _ = tera.add_raw_template(
             "spp.py_t",
             r#"
 ifg_files = [
     {% for file in ifg_files %}
-    r"{{ file }}",
+    r"{{ file -}}",
     {% endfor %}
     ]
 sam_files = [
     {% for file in sam_files %}
-    r"{{ file }}",
+    r"{{ file -}}",
     {% endfor %}
 ]
 
 ref_files = [
     {% for file in ref_files %}
-    r"{{ file }}",
+    r"{{ file -}}",
     {% endfor %}
 ]
 
@@ -151,8 +153,8 @@ myspp = ps.SPPMethod(ifg_files, sam_files, ref_files, {% if skiprows %} skiprows
 {% if meta_len %}meta_len={{ meta_len }} {%- else %} meta_len=0 {% endif %}, 
 {% if eager %}callback=ps.eager_executor(reference_point={{ reference_frequency }}, order={{ order }}, logfile="spp.log", verbosity=1){% endif %})
 
-{% for cmd in before_evaluate_triggers %}
-{{ cmd }}
+{% for cmd in bet %}
+{{ cmd -}}
 {% endfor %}
 
 {% if detach %}
@@ -163,8 +165,8 @@ for ifg in myspp:
 
 myspp.calculate({{ reference_frequency }}, {{ order }}, show_graph=False)
 
-{% for cmd in after_evaluate_triggers %}
-{{ cmd }}
+{% for cmd in aet %}
+{{ cmd -}}
 {% endfor %}
     "#,
         );
@@ -190,25 +192,12 @@ pub fn render_spp_template(
     ref_files: &[PathBuf],
     sam_files: &[PathBuf],
     path: &str,
-    evaluate_options: &EvaluateOptions,
-    intermediate_hooks: &IntermediateHooks,
+    config: &Config,
     result_file: &str,
     verbosity: u8,
     is_audit: bool,
 ) -> Result<std::string::String, tera::Error> {
-    let mut context = Context::new();
-
-    for (key, entry) in &evaluate_options.number_options {
-        context.insert(key, &entry);
-    }
-
-    for (key, entry) in &evaluate_options.text_options {
-        context.insert(key, &entry);
-    }
-
-    for (key, entry) in &evaluate_options.bool_options {
-        context.insert(key, &entry);
-    }
+    let mut context = config.insert_into_ctx().unwrap();
 
     let ifgs = ifg_files
         .iter()
@@ -234,16 +223,6 @@ pub fn render_spp_template(
     context.insert("workdir", &path);
     context.insert("is_audit", &is_audit);
 
-    // other
-    context.insert(
-        "before_evaluate_triggers",
-        &intermediate_hooks.before_evaluate_triggers,
-    );
-    context.insert(
-        "after_evaluate_triggers",
-        &intermediate_hooks.after_evaluate_triggers,
-    );
-
     // render as String
     TEMPLATES.render("spp.py_t", &context)
 }
@@ -251,15 +230,14 @@ pub fn render_spp_template(
 pub fn render_generic_template(
     file: &str,
     path: &str,
-    evaluate_options: &EvaluateOptions,
-    intermediate_hooks: &IntermediateHooks,
+    config: &Config,
     result_file: &str,
     verbosity: u8,
     is_audit: bool,
     sam_arm: Option<&PathBuf>,
     ref_arm: Option<&PathBuf>,
 ) -> Result<std::string::String, tera::Error> {
-    let mut context = Context::new();
+    let mut context = config.insert_into_ctx().unwrap();
 
     if let Some(arm) = sam_arm {
         let f2 = arm.as_path().file_name().unwrap().to_str().unwrap_or("");
@@ -271,17 +249,6 @@ pub fn render_generic_template(
         context.insert("filename3", &format!("{}/{}", path, f3));
     }
 
-    for (key, entry) in &evaluate_options.number_options {
-        context.insert(key, &entry);
-    }
-
-    for (key, entry) in &evaluate_options.text_options {
-        context.insert(key, &entry);
-    }
-
-    for (key, entry) in &evaluate_options.bool_options {
-        context.insert(key, &entry);
-    }
     // Specials
     context.insert("verbosity", &verbosity);
     context.insert("result_file", result_file);
@@ -292,16 +259,6 @@ pub fn render_generic_template(
     // FIXME: this is redundant
     context.insert("filename", &format!("{}/{}", path, file));
 
-    // other
-    context.insert(
-        "before_evaluate_triggers",
-        &intermediate_hooks.before_evaluate_triggers,
-    );
-    context.insert(
-        "after_evaluate_triggers",
-        &intermediate_hooks.after_evaluate_triggers,
-    );
-
     // render as String
     TEMPLATES.render("pstemplate.py_t", &context)
 }
@@ -311,78 +268,47 @@ fn write_default_yaml(path: &str) -> std::io::Result<()> {
     std::fs::write(
         cfg_path,
         r#"load_options:
-  - extensions:
-      - "trt"
-#      - "txt"
-#  - exclude_patterns:
-#      - "*_randomfile.trt"
-#      - "*_to_skip.trt"
-#  - skip:
-#      - "filename.trt"
-#      - "file_to_skip.trt"
-  - skiprows: 8 # lines
-  - decimal: ","
-  - delimiter: ";"
-  - meta_len: 6 # lines
-  # - mod: 1 # | 3 | -1
-  # note that this is only available when using audit, and it only
-  # has effect when the method is "cff", "mm" or "spp", the other methods
-  # auto-skip files..
-  # - no_comment_check: true
-  # By default an evaluation will be skipped if the user comment contains one of
-  # `noeval`, `sam`, `sample`, `ref` or `reference`.
-  # This option turns that metadata checking off.
-
+  extensions:
+    - "trt"
+    - "txt"
+  exclude_patterns:
+    - "*_randomfile.trt"
+  skip_files:
+    - "my_file_to_skip.txt"
+  skiprows: 8
+  decimal: ","
+  delimiter: ";"
+  meta_len: 6 # lines
+  mod: -1 
+  no_comment_check: true
 preprocess:
-  - chdomain: true
-#  - input_unit: "nm"
-#  - slice_start: 2 # PHz
-#  - slice_stop: 4 # PHz
-
+  chdomain: true
+  input_unit: "nm"
+  slice_start: 2 # PHz
+  slice_stop: 4 # PHz
 method:
-  - wft # | fft | mm | cff | spp
-
+  fft
 method_details:
-  # globally available options
-  # - only_phase # TODO field
-  # - plot
-
-  # options for -- MinMaxMethod --
-  # - min
-  # - max
-  # - both
-
-  # options for -- WFTMethod --
-  # - heatmap
-  # - windows: 200
-  # - fwhm: 0.05 # PHz
-  # - std: 0.05 # PHz
-  # - parallel
-
-  # options for -- FFTMethod --
-  # no specific options availabe
-
-  # options for -- CosFitMethod --
-  # no specific options availabe
-  # only available in audit
-
-  # options for -- SPPMethod --
-  # - eager
-  # - detach
-  # only available in audit
-
-# before_evaluate:
-  # - "print('before_evaluate')"
-  # - "print('you have access to the `ifg` variable')"
-  # - "print(f'and this is it now: {ifg}')"
-
+  heatmap: false
+  windows: 200
+  fwhm: 0.05
+  std: 0.05
+  parallel: false
+  plot: false
+  only_phase: false
+  min: false
+  max: false
+  both: false
+  eager: false
+  detach: true
+before_evaluate:
+  - print('before_evaluate')
+  - print('you have access to the `ifg` variable')
 evaluate:
-  - reference_frequency: 2.355 # PHz
-  - order: 3 # up to TOD
-
-# after_evaluate:
-  # - "print('and after evaluate too..')"
-
+  reference_frequency: 2.355
+  order: 3
+after_evaluate:
+  - "print('and after evaluate too..')"
 "#
         .as_bytes(),
     )?;

@@ -1,3 +1,4 @@
+use crate::deserialize::MethodType;
 use crate::{
     codegen::{render_generic_template, write_tempfile_with_imports},
     parser::parse,
@@ -24,11 +25,10 @@ pub fn watch<P: AsRef<Path> + Copy>(
 
     // we need to append the filepath to the template, because python also runs from *here*.
     let fpath = &path.as_ref().to_str().unwrap();
-    let (evaluate_options, intermediate_hooks, file_pattern_options) =
-        parse(&format!("{}/{}", fpath, config_file));
+    let config = parse(&format!("{}/{}", fpath, config_file)).unwrap();
 
-    match evaluate_options.text_options["methodname"].as_ref() {
-        "CosFitMethod" | "SPPMethod" => {
+    match &config.method {
+        MethodType::CosFitMethod | MethodType::SPPMethod => {
             panic!("CosFitMethod and SPPMethod are not supported in watch mode.");
         }
         _ => {}
@@ -45,8 +45,11 @@ pub fn watch<P: AsRef<Path> + Copy>(
 
                         match ext {
                             Some(value) => {
-                                if file_pattern_options
+                                if config
+                                    .load_options
                                     .extensions
+                                    .clone()
+                                    .as_comparable()
                                     .contains(&value.to_str().unwrap().to_owned())
                                 {
                                     // clear terminal on rerun
@@ -59,8 +62,7 @@ pub fn watch<P: AsRef<Path> + Copy>(
                                     let code = render_generic_template(
                                         &e.file_name().unwrap().to_str().unwrap(),
                                         fpath,
-                                        &evaluate_options,
-                                        &intermediate_hooks,
+                                        &config,
                                         &result_file,
                                         verbosity,
                                         false,

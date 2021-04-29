@@ -1,6 +1,6 @@
 use crate::codegen::maybe_write_default_yaml;
+use crate::deserialize::LoadOptions;
 use crate::io::create_results_file;
-use crate::parser::FilePatternOptions;
 use clap::ArgMatches;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::io::Write;
@@ -116,12 +116,16 @@ pub fn result_file_is_present<P: AsRef<Path>>(
     }
 }
 
-pub fn get_exclude_patterns(file_pattern_options: &FilePatternOptions) -> Vec<WildMatch> {
-    let mut exclude_patterns: Vec<WildMatch> = Vec::new();
-    for pattern in &file_pattern_options.exclude_patterns {
-        exclude_patterns.push(WildMatch::new(&pattern));
+pub fn get_exclude_patterns(file_pattern_options: &LoadOptions) -> Vec<WildMatch> {
+    let mut ep: Vec<WildMatch> = Vec::new();
+    for pattern in &file_pattern_options
+        .exclude_patterns
+        .clone()
+        .as_comparable()
+    {
+        ep.push(WildMatch::new(&pattern));
     }
-    exclude_patterns
+    ep
 }
 
 pub fn get_process_bar_with_length(l: u64) -> ProgressBar {

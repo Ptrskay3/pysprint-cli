@@ -1,4 +1,4 @@
-use crate::parser::FilePatternOptions;
+use crate::deserialize::LoadOptions;
 use crate::utils::get_exclude_patterns;
 use std::fs::File;
 use std::io::Write;
@@ -10,26 +10,12 @@ pub fn create_results_file(filename: &str) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn get_files(
-    root: &str,
-    file_pattern_options: &FilePatternOptions,
-) -> io::Result<Vec<PathBuf>> {
+pub fn get_files(root: &str, file_pattern_options: &LoadOptions) -> io::Result<Vec<PathBuf>> {
     let mut result = vec![];
 
-    // TODO: needless collect
+    let ext_as_str_ref = file_pattern_options.extensions.clone().as_comparable();
 
-    // Vec<String> -> Vec<&str> conversion, to be comparable below
-    let ext_as_str_ref = file_pattern_options
-        .extensions
-        .iter()
-        .map(|s| &s[..])
-        .collect::<Vec<_>>();
-
-    let skips_as_str_ref = file_pattern_options
-        .skip_files
-        .iter()
-        .map(|s| &s[..])
-        .collect::<Vec<_>>();
+    let skips_as_str_ref = file_pattern_options.skip_files.clone().as_comparable();
 
     for path in fs::read_dir(root)? {
         let path = path?.path();
@@ -43,7 +29,8 @@ pub fn get_files(
             &path
                 .file_name()
                 .and_then(OsStr::to_str)
-                .unwrap_or("__nofilename"),
+                .unwrap_or("__nofilename")
+                .to_owned(),
         ) {
             continue;
         }
@@ -52,7 +39,8 @@ pub fn get_files(
             &path
                 .extension()
                 .and_then(OsStr::to_str)
-                .unwrap_or("__noextension"),
+                .unwrap_or("__noextension")
+                .to_owned(),
         ) {
             result.push(path.to_owned());
         }
