@@ -8,5 +8,6 @@ pub mod deserialize;
 pub mod io;
 pub mod parser;
 pub mod python;
+pub mod statistics;
 pub mod utils;
 pub mod watch;

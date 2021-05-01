@@ -57,12 +57,12 @@ y_before_transform = np.copy(ifg.y_norm)
 {%if plot %}
 ifg.plot()
 plt.show(block=True)
-{% endif %}
+{% endif -%}
 
 
 {% for cmd in bet %}
 {{ cmd -}}
-{% endfor %}
+{% endfor -%}
 
 {% if methodname == "FFTMethod" %}
 import warnings
@@ -121,11 +121,10 @@ plt.show(block=True)
 fragment = ps.utils._prepare_json_fragment(ifg, "{{ filename_raw }}", x_before_transform, y_before_transform, verbosity={{ verbosity }})
 ps.utils._write_or_update_json_fragment("{{ workdir }}/{{ result_file }}", fragment, "{{ filename_raw }}")
 
-{#
-{% for cmd in aet %}
+{%- for cmd in aet %}
 {{ cmd -}}
 {% endfor %}
-#}"#,
+"#,
         );
         let _ = tera.add_raw_template(
             "spp.py_t",
@@ -202,17 +201,17 @@ pub fn render_spp_template(
     let ifgs = ifg_files
         .iter()
         .filter_map(|p| p.to_str())
-        .collect::<Vec<&str>>();
+        .collect::<Vec<_>>();
 
     let refs = ref_files
         .iter()
         .filter_map(|p| p.to_str())
-        .collect::<Vec<&str>>();
+        .collect::<Vec<_>>();
 
     let sams = sam_files
         .iter()
         .filter_map(|p| p.to_str())
-        .collect::<Vec<&str>>();
+        .collect::<Vec<_>>();
 
     // Specials
     context.insert("sam_files", &sams);
@@ -278,21 +277,21 @@ fn write_default_yaml(path: &str) -> std::io::Result<()> {
   skiprows: 8
   decimal: ","
   delimiter: ";"
-  meta_len: 6 # lines
-  mod: -1 
-  no_comment_check: true
+  meta_len: 6
+  mod: 1
+  no_comment_check: false
 preprocess:
   chdomain: true
   input_unit: "nm"
-  slice_start: 2 # PHz
-  slice_stop: 4 # PHz
+  # slice_start: 2 # PHz
+  # slice_stop: 4 # PHz
 method:
   fft
 method_details:
   heatmap: false
   windows: 200
-  fwhm: 0.05
-  std: 0.05
+  fwhm: 0.05 # PHz
+  std: 0.05 # PHz
   parallel: false
   plot: false
   only_phase: false
@@ -303,10 +302,10 @@ method_details:
   detach: true
 before_evaluate:
   - print('before_evaluate')
-  - print('you have access to the `ifg` variable')
 evaluate:
   reference_frequency: 2.355
   order: 3
+  only_phase: false
 after_evaluate:
   - "print('and after evaluate too..')"
 "#

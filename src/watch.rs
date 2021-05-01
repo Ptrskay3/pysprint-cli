@@ -49,7 +49,7 @@ pub fn watch<P: AsRef<Path> + Copy>(
                                     .load_options
                                     .extensions
                                     .clone()
-                                    .as_comparable()
+                                    .to_comparable()
                                     .contains(&value.to_str().unwrap().to_owned())
                                 {
                                     // clear terminal on rerun

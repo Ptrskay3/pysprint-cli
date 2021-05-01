@@ -23,10 +23,13 @@ pub fn audit(
     let _ = py_handshake(stdout);
 
     let files = get_files(filepath, &config.load_options).unwrap();
+    let warn = config.method == MethodType::SPPMethod
+        || config.method == MethodType::CosFitMethod
+        || config.method == MethodType::MinMaxMethod;
+    let (mut ifgs, mut sams, mut refs) = sort_by_arms(&files, stdout, warn);
+    let modulo = config.load_options._mod;
     match &config.method {
         MethodType::SPPMethod => {
-            let (mut ifgs, mut sams, mut refs) = sort_by_arms(&files, stdout);
-            let modulo = config.load_options._mod;
             match modulo.unwrap() {
                 _Mod(3) => {}
                 _Mod(1) => {
@@ -67,11 +70,7 @@ pub fn audit(
                 let _ = WriteColor::reset(stdout);
             }
         }
-        MethodType::CosFitMethod | MethodType::MinMaxMethod => {
-            let (ifgs, sams, refs) = sort_by_arms(&files, stdout);
-
-            let modulo = &config.load_options._mod;
-
+        _ => {
             // TODO: this is a really ugly, almost copy-paste match statement
             // there must be a way to solve this elegantly..
             match modulo.unwrap() {
@@ -241,62 +240,6 @@ pub fn audit(
                     panic!("mod field should be 3, 1 or -1, found {:?}", modulo);
                 }
             };
-        }
-        _ => {
-            let bar = get_process_bar_with_length(files.len() as u64);
-
-            for file in files.iter() {
-                bar.inc(1);
-
-                // render the code that needs to be executed
-                let code = render_generic_template(
-                    file.as_path().file_name().unwrap().to_str().unwrap(),
-                    filepath,
-                    &config,
-                    &result_file,
-                    verbosity,
-                    true,
-                    None,
-                    None,
-                );
-
-                // write the generated code if needed
-                if persist {
-                    let _ = write_tempfile_with_imports(
-                        file.as_path().file_stem().unwrap().to_str().unwrap(),
-                        code.as_ref().unwrap(),
-                        filepath,
-                    );
-                }
-
-                // execute it
-                if let Ok((e, tb)) = exec_py(&code.unwrap(), stdout, true) {
-                    if e {
-                        counter += 1;
-                        traceback.push_str(&format!(
-                            "file: {}\terror: {}\n",
-                            file.as_path()
-                                .file_name()
-                                .unwrap()
-                                .to_str()
-                                .unwrap_or("unknown filename"),
-                            &tb
-                        ));
-                    }
-                }
-            }
-            bar.finish_with_message("Done.");
-            if counter > 0 {
-                if let Err(e) =
-                    writeln!(stdout, "[INFO] {:?} files skipped or errored out.", counter)
-                {
-                    println!("Error writing to stdout: {:?}", e);
-                }
-                let pb = get_spinner();
-                pb.set_message("Generating report..");
-                let _ = write_err(filepath, &traceback);
-                pb.finish_with_message(&format!("Report generated at `{}/errors.log`.", filepath));
-            }
         }
     }
 }

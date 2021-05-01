@@ -1,3 +1,4 @@
+use crate::statistics::summarize;
 use crate::{audit::audit, python::py_handshake, utils::get_startup_options, watch::watch};
 use clap::{
     crate_authors, crate_description, crate_version, App, AppSettings, Arg, ArgMatches, SubCommand,
@@ -46,6 +47,11 @@ pub fn launch() {
             }
         }
     }
+
+    if let Some(matches) = matches.subcommand_matches("summarize") {
+        let result_file = matches.value_of("result").unwrap_or("results.json");
+        summarize(result_file);
+    }
 }
 
 fn start_app_and_get_matches() -> ArgMatches<'static> {
@@ -86,6 +92,7 @@ fn start_app_and_get_matches() -> ArgMatches<'static> {
                 .arg(
                     Arg::with_name("persist")
                         .long("persist")
+                        .short("p")
                         .value_name("PERSIST")
                         .help("persist the evaluation files")
                         .takes_value(false),
@@ -100,6 +107,7 @@ fn start_app_and_get_matches() -> ArgMatches<'static> {
                 .arg(
                     Arg::with_name("override")
                         .long("override")
+                        .short("o")
                         .help("whether to override existing result file")
                         .takes_value(false),
                 ),
@@ -127,6 +135,7 @@ fn start_app_and_get_matches() -> ArgMatches<'static> {
                 .arg(
                     Arg::with_name("persist")
                         .long("persist")
+                        .short("p")
                         .value_name("PERSIST")
                         .help("persist the evaluation files")
                         .takes_value(false),
@@ -150,8 +159,21 @@ fn start_app_and_get_matches() -> ArgMatches<'static> {
                 .arg(
                     Arg::with_name("override")
                         .long("override")
+                        .short("o")
                         .help("whether to override existing result file")
                         .takes_value(false),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("summarize")
+                .about("Summarize the results.")
+                .arg(
+                    Arg::with_name("result")
+                        .short("r")
+                        .long("result")
+                        .value_name("RESULT")
+                        .help("the result file to summarize")
+                        .takes_value(true),
                 ),
         )
         .get_matches()

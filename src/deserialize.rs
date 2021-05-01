@@ -8,8 +8,10 @@ pub struct Config {
     #[serde(deserialize_with = "de_from_method_str")]
     pub(crate) method: MethodType,
     method_details: MethodDetails,
-    pub(crate) before_evaluate: Option<StringSequence>,
+    #[serde(default = "default_trigger")]
+    before_evaluate: Option<StringSequence>,
     evaluate: Option<Evaluate>,
+    #[serde(default = "default_trigger")]
     after_evaluate: Option<StringSequence>,
 }
 
@@ -48,7 +50,9 @@ where
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct LoadOptions {
     pub(crate) extensions: StringSequence,
+    #[serde(default = "default_placeholder")]
     pub(crate) exclude_patterns: StringSequence,
+    #[serde(default = "default_placeholder")]
     pub(crate) skip_files: StringSequence,
     skiprows: u32,
     meta_len: u32,
@@ -57,12 +61,14 @@ pub struct LoadOptions {
     #[serde(rename = "mod")]
     #[serde(default)]
     pub(crate) _mod: Option<_Mod>,
+    #[serde(default = "no_comment_check_default")]
     no_comment_check: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct Preprocess {
     chdomain: Option<bool>,
+    #[serde(default = "input_unit_default")]
     input_unit: Option<String>,
     slice_start: Option<f64>,
     slice_stop: Option<f64>,
@@ -86,7 +92,6 @@ struct MethodDetails {
     std: Option<f64>,
     parallel: Option<bool>,
     plot: Option<bool>,
-    only_phase: Option<bool>,
     min: Option<bool>,
     max: Option<bool>,
     both: Option<bool>,
@@ -98,6 +103,7 @@ struct MethodDetails {
 struct Evaluate {
     reference_frequency: Option<f64>,
     order: Option<u32>,
+    only_phase: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
@@ -108,8 +114,7 @@ pub enum StringSequence {
 }
 
 impl StringSequence {
-    // TODO:  methods called `as_*` usually take `self` by reference or `self` by mutable reference
-    pub fn as_comparable(self) -> Vec<String> {
+    pub fn to_comparable(self) -> Vec<String> {
         match self {
             StringSequence::String(single) => vec![single],
             StringSequence::Vector(vec) => vec,
@@ -147,3 +152,22 @@ impl PartialEq for _Mod {
 }
 
 impl Eq for _Mod {}
+
+fn input_unit_default() -> Option<String> {
+    Some("nm".to_owned())
+}
+
+fn no_comment_check_default() -> Option<bool> {
+    Some(false)
+}
+
+fn default_trigger() -> Option<StringSequence> {
+    Some(StringSequence::Vector(vec![
+        String::from(""),
+        String::from(""),
+    ]))
+}
+
+fn default_placeholder() -> StringSequence {
+    StringSequence::String(String::from("default_features"))
+}

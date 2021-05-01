@@ -121,7 +121,7 @@ pub fn get_exclude_patterns(file_pattern_options: &LoadOptions) -> Vec<WildMatch
     for pattern in &file_pattern_options
         .exclude_patterns
         .clone()
-        .as_comparable()
+        .to_comparable()
     {
         ep.push(WildMatch::new(&pattern));
     }
@@ -150,6 +150,7 @@ pub fn get_spinner() -> ProgressBar {
 pub fn sort_by_arms(
     files: &[PathBuf],
     stdout: &mut StandardStream,
+    warn: bool,
 ) -> (Vec<PathBuf>, Vec<PathBuf>, Vec<PathBuf>) {
     let mut ifgs = Vec::<PathBuf>::new();
     let mut sams = Vec::<PathBuf>::new();
@@ -157,7 +158,7 @@ pub fn sort_by_arms(
 
     // exclude the hanging files, the arms missmatch somewhere
     let n = files.len() - files.len() % 3;
-    if n != files.len() {
+    if n != files.len() && warn {
         let _ = stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)));
         let _ = writeln!(
             stdout,

@@ -836,6 +836,7 @@ dependencies = [
  "notify",
  "pyo3",
  "serde",
+ "serde_json",
  "serde_yaml",
  "tempfile",
  "tera",

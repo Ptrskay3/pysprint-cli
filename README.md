@@ -17,36 +17,47 @@ PySprint-CLI is in very early stages of development, you might find bugs or unde
 First, set up an `eval.yaml` file where you will work. PySprint-CLI will optionally generate a default one on demand. That file will define the behaviour of the program. Here is an example:
 
 ```yml
-load_options:
-  - skiprows: 8 # lines
-  - decimal: ","
-  - delimiter: ";"
-  - meta_len: 6 # lines
-
+  extensions:
+    - "trt"
+    - "txt"
+  exclude_patterns:
+    - "*?3?.trt"
+  skip_files:
+    - "my_file_to_skip.txt"
+  skiprows: 8
+  decimal: ","
+  delimiter: ";"
+  meta_len: 6
+  mod: -1
+  no_comment_check: true
 preprocess:
-  - input_unit: "nm"
-  - chdomain: true
-  - slice_start: 2 # PHz
-  - slice_stop: 4 # PHz
-
+  chdomain: true
+  input_unit: "nm"
+  slice_start: 2
+  slice_stop: 4
 method:
-  - wft
-
+  fft
 method_details:
-  - heatmap
-  - windows: 200 # number of windows
-  - fwhm: 0.05 # PHz
-
+  heatmap: false
+  windows: 200
+  fwhm: 0.05
+  std: 0.05
+  parallel: false
+  plot: false
+  only_phase: false
+  min: false
+  max: false
+  both: false
+  eager: false
+  detach: true
 before_evaluate:
-  - "print('this is a point where you can')"
-  - "print('interact with the program')"
-
+  - print('before_evaluate')
+  - print('you have access to the `ifg` variable')
 evaluate:
-  - reference_frequency: 2.355 # PHz
-  - order: 3 # up to TOD
-
+  reference_frequency: 2.355
+  order: 3
 after_evaluate:
-  - "print('and also here, after evaluate..')"
+  - "print('and after evaluate too..')"
 ```
 
 To start watching a directory, run:
@@ -61,7 +72,7 @@ To run an evaluation on an already existing filebase, run:
 psc audit [your/path/here]
 ```
 
-Optionally generated files can be saved with the `--persist` (or `-p` for short) flag.
+Optionally generated files can be saved with the `--persist` flag.
 
 ### Building from source
 
