@@ -17,6 +17,7 @@ PySprint-CLI is in very early stages of development, you might find bugs or unde
 First, set up an `eval.yaml` file where you will work. PySprint-CLI will optionally generate a default one on demand. That file will define the behaviour of the program. Here is an example:
 
 ```yml
+load_options:
   extensions:
     - "trt"
     - "txt"
@@ -35,8 +36,7 @@ preprocess:
   input_unit: "nm"
   slice_start: 2
   slice_stop: 4
-method:
-  fft
+method: fft
 method_details:
   heatmap: false
   windows: 200
