@@ -291,7 +291,7 @@ method_details:
   heatmap: false
   windows: 200
   fwhm: 0.05 # PHz
-  std: 0.05 # PHz
+  # std: 0.05 # PHz
   parallel: false
   plot: false
   only_phase: false
@@ -307,7 +307,7 @@ evaluate:
   order: 3
   only_phase: false
 after_evaluate:
-  - "print('and after evaluate too..')"
+  - print('and after evaluate too..')
 "#
         .as_bytes(),
     )?;

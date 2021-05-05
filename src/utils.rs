@@ -140,7 +140,8 @@ pub fn get_process_bar_with_length(l: u64) -> ProgressBar {
 pub fn get_spinner() -> ProgressBar {
     let pb = ProgressBar::new_spinner();
     let spinner_style = ProgressStyle::default_spinner()
-        .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+        // .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+        .tick_chars("/|\\- ")
         .template("{prefix:.bold.dim} {spinner} {wide_msg}");
     pb.set_style(spinner_style);
     pb.enable_steady_tick(40);

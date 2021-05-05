@@ -52,7 +52,7 @@ impl fmt::Display for DispersionCoeffitient {
                 _ => {
                     write!(
                         f,
-                        ": mean = {:>12.5}| std = {:>12.5}| min = {:>12.5}| max = {:>12.5}  {}",
+                        ": mean = {:>12.5} | std = {:>12.5} | min = {:>12.5} | max = {:>12.5}  {}",
                         self.mean().unwrap_or(0.0),
                         self.std_deviation().unwrap_or(0.0),
                         self.min(),
@@ -195,6 +195,7 @@ pub fn summarize<P: AsRef<Path>>(path: P) {
     let mut qods = DispersionCoeffitient::empty_with_type(CoeffitientType::QOD);
     let mut sods = DispersionCoeffitient::empty_with_type(CoeffitientType::SOD);
     let mut method: &str = "";
+
     for v in map.values() {
         let curr_gd: f64 = match &v["GD"] {
             Value::String(val) => val.parse::<f64>().unwrap(),
