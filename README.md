@@ -214,7 +214,8 @@ cargo install --path .
       - "txt"
   ```
 
-  - `exclude_patterns`: Special patterns to exclude files. Must be a sequence.
+- `exclude_patterns`: Special patterns to exclude files. Must be a sequence.
+
   - Example:
 
   ```yaml
