@@ -59,7 +59,7 @@ after_evaluate:
 
 - _watch_
 
-  This subcommand will watch a filepath for changes, and it immediately reruns on create and change events (a 100 ms throttle is applied).
+  This subcommand will watch a filepath for changes, and it will immediately rerun on create and change events (a 100 ms throttle is applied).
   Note that `cff` and `spp` methods are not available during watch mode, because it brings ambiguity to the evaluation.
 
   ```shell
@@ -236,7 +236,7 @@ cargo install --path .
       - "my_another_file_to_skip.psd"
   ```
 
-- `skiprows`: The number of lines to skip in each loaded file. It's equivalent to `pysprint.Dataset.parse_raw`'s skiprows option (and internalls calls that too). Must be a non-negative integer.
+- `skiprows`: The number of lines to skip in each loaded file. It's equivalent to `pysprint.Dataset.parse_raw`'s skiprows option. Must be a non-negative integer.
 
   - Example:
 
@@ -281,7 +281,7 @@ cargo install --path .
     mod: -1
   ```
 
-- `no_comment_check`: Whether to check each file for special keywords in their metadata, and skip evaluation of presence. These keywords are `sam`, `ref`, `sample`, `reference` and `noeval`. Must be `true` or `false`.
+- `no_comment_check`: Whether to check each file for special keywords in their metadata, and skip evaluation on any keyword presence. These keywords are `sam`, `ref`, `sample`, `reference` and `noeval`. Must be `true` or `false`.
 
   - Example:
 
@@ -459,7 +459,7 @@ method: fft
 
 ### `before_evaluate` and `after_evaluate` section
 
-These sections are special ways to interact with the generated code. The contents of these fields (in case it's valid Python code) will be inserted before and after evaluate.
+These sections are special ways to interact with the generated code. The contents of these fields - in case it's valid Python code - will be inserted before and after evaluate.
 
 - Example:
 
