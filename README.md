@@ -37,14 +37,14 @@ preprocess:
   input_unit: "nm"
   slice_start: 2
   slice_stop: 4
-method: fft
+method: wft
 method_details:
   heatmap: false
   windows: 400
   fwhm: 0.05
   parallel: true
 before_evaluate:
-  - print('before_evaluate')
+  - print('this piece of code will be run before evaluate')
   - print(f'you have access to the {ifg} variable')
 evaluate:
   reference_frequency: 2.355
@@ -52,7 +52,6 @@ evaluate:
   only_phase: false
 after_evaluate:
   - print('this piece of code will be run after evaluate')
-  - print('and after evaluate too..')
 ```
 
 ## SUBCOMMANDS
