@@ -1,5 +1,5 @@
 use crate::utils::get_spinner;
-use pyo3::ffi;
+use pyo3::ffi::Py_SetPythonHome;
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
 use std::io::Write;
@@ -27,18 +27,47 @@ pub fn exec_py(
     stdout: &mut StandardStream,
     to_file: bool,
 ) -> PyResult<(bool, String)> {
+    // There is a better solution below..
+
     // if there is `CONDA_PREFIX`, set PYTHONHOME to the same thing.
     // related issue: https://github.com/ContinuumIO/anaconda-issues/issues/11439
     // this is potentially unsafe and not tested, so it should be avoided if the issue gets resolved
-    if let Some(python_home) = std::env::var_os("CONDA_PREFIX") {
-        unsafe {
-            ffi::Py_SetPythonHome(
-                WideCString::from_str(python_home.to_str().unwrap())
-                    .unwrap()
-                    .as_ptr(),
-            );
-        }
+    // if let Some(python_home) = std::env::var_os("CONDA_PREFIX") {
+    //     unsafe {
+    //         ffi::Py_SetPythonHome(
+    //             WideCString::from_str(python_home.to_str().unwrap())
+    //                 .unwrap()
+    //                 .as_ptr(),
+    //         );
+    //     }
+    // }
+
+    // A workaround for https://github.com/ContinuumIO/anaconda-issues/issues/11439
+    // by https://github.com/cgranade
+
+    // Due to https://github.com/ContinuumIO/anaconda-issues/issues/11439,
+    // we first need to set PYTHONHOME. To do so, we will look for whatever
+    // directory on PATH currently has python.exe.
+    let python_exe = which::which("python").expect("Python was not found on PATH.");
+    let python_home = python_exe.parent().unwrap();
+
+    // The Python C API uses null-terminated UTF-16 strings, so we need to
+    // encode the path into that format here.
+    // We could use the Windows FFI modules provided in the standard library,
+    // but we want this to work cross-platform, so we do things more manually.
+    let mut python_home = python_home
+        .to_str()
+        .unwrap()
+        .encode_utf16()
+        .collect::<Vec<u16>>();
+    python_home.push(0);
+    unsafe {
+        Py_SetPythonHome(python_home.as_ptr());
     }
+
+    // Once we've set the configuration we need, we can go on and manually
+    // initialize PyO3.
+    pyo3::prepare_freethreaded_python();
 
     // whether this run resulted in an error
     // we count the fails in audit using this variable
@@ -87,15 +116,42 @@ pub fn exec_py(
     // if there is `CONDA_PREFIX`, set PYTHONHOME to the same thing.
     // related issue: https://github.com/ContinuumIO/anaconda-issues/issues/11439
     // this is potentially unsafe and not tested, so it should be avoided if the issue gets resolved
-    if let Some(python_home) = std::env::var_os("CONDA_PREFIX") {
-        unsafe {
-            ffi::Py_SetPythonHome(
-                WideCString::from_str(python_home.to_str().unwrap())
-                    .unwrap()
-                    .as_ptr() as *const i32,
-            );
-        }
+    // if let Some(python_home) = std::env::var_os("CONDA_PREFIX") {
+    //     unsafe {
+    //         ffi::Py_SetPythonHome(
+    //             WideCString::from_str(python_home.to_str().unwrap())
+    //                 .unwrap()
+    //                 .as_ptr() as *const i32,
+    //         );
+    //     }
+    // }
+
+    // A workaround for https://github.com/ContinuumIO/anaconda-issues/issues/11439
+    // by https://github.com/cgranade
+
+    // Due to https://github.com/ContinuumIO/anaconda-issues/issues/11439,
+    // we first need to set PYTHONHOME. To do so, we will look for whatever
+    // directory on PATH currently has python.exe.
+    let python_exe = which::which("python").expect("Python was not found on PATH.");
+    let python_home = python_exe.parent().unwrap();
+
+    // The Python C API uses null-terminated UTF-16 strings, so we need to
+    // encode the path into that format here.
+    // We could use the Windows FFI modules provided in the standard library,
+    // but we want this to work cross-platform, so we do things more manually.
+    let mut python_home = python_home
+        .to_str()
+        .unwrap()
+        .encode_utf16()
+        .collect::<Vec<u16>>();
+    python_home.push(0);
+    unsafe {
+        Py_SetPythonHome(python_home.as_ptr() as *const i32);
     }
+
+    // Once we've set the configuration we need, we can go on and manually
+    // initialize PyO3.
+    pyo3::prepare_freethreaded_python();
 
     // whether this run resulted in an error
     // we count the fails in audit using this variable
