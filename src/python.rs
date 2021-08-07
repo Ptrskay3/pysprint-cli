@@ -26,7 +26,6 @@ pub fn exec_py(
     stdout: &mut StandardStream,
     to_file: bool,
 ) -> PyResult<(bool, String)> {
-    
     // A workaround for https://github.com/ContinuumIO/anaconda-issues/issues/11439
     // by https://github.com/cgranade
 
@@ -98,7 +97,6 @@ pub fn exec_py(
     stdout: &mut StandardStream,
     to_file: bool,
 ) -> PyResult<(bool, String)> {
-    
     // A workaround for https://github.com/ContinuumIO/anaconda-issues/issues/11439
     // by https://github.com/cgranade
 
