@@ -52,7 +52,7 @@ pub fn audit(
                 &sams,
                 filepath,
                 &config,
-                &result_file,
+                result_file,
                 verbosity,
                 true,
             );
@@ -83,11 +83,11 @@ pub fn audit(
                             file.as_path().file_name().unwrap().to_str().unwrap(),
                             filepath,
                             &config,
-                            &result_file,
+                            result_file,
                             verbosity,
                             true,
-                            Some(&sam_),
-                            Some(&ref_),
+                            Some(sam_),
+                            Some(ref_),
                         );
                         if persist {
                             let _ = write_tempfile_with_imports(
@@ -137,7 +137,7 @@ pub fn audit(
                             file.as_path().file_name().unwrap().to_str().unwrap(),
                             filepath,
                             &config,
-                            &result_file,
+                            result_file,
                             verbosity,
                             true,
                             None,
@@ -191,7 +191,7 @@ pub fn audit(
                             file.as_path().file_name().unwrap().to_str().unwrap(),
                             filepath,
                             &config,
-                            &result_file,
+                            result_file,
                             verbosity,
                             true,
                             None,

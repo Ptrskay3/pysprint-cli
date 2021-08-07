@@ -238,7 +238,7 @@ pub fn summarize<P: AsRef<Path>>(path: P) {
             _ => 0.0,
         };
         sods.push(curr_sods);
-        method = &v["method"].as_str().unwrap_or("unknown");
+        method = v["method"].as_str().unwrap_or("unknown");
     }
     println!("{} entries found.", gds.len());
     println!("method: {}", method);

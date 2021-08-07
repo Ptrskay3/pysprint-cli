@@ -5,7 +5,6 @@ use pyo3::types::IntoPyDict;
 use std::io::Write;
 use std::path::PathBuf;
 use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
-use widestring::WideCString;
 
 /// Check if we're able to start a Python interpreter,
 /// and fail early if we can't.
@@ -27,21 +26,7 @@ pub fn exec_py(
     stdout: &mut StandardStream,
     to_file: bool,
 ) -> PyResult<(bool, String)> {
-    // There is a better solution below..
-
-    // if there is `CONDA_PREFIX`, set PYTHONHOME to the same thing.
-    // related issue: https://github.com/ContinuumIO/anaconda-issues/issues/11439
-    // this is potentially unsafe and not tested, so it should be avoided if the issue gets resolved
-    // if let Some(python_home) = std::env::var_os("CONDA_PREFIX") {
-    //     unsafe {
-    //         ffi::Py_SetPythonHome(
-    //             WideCString::from_str(python_home.to_str().unwrap())
-    //                 .unwrap()
-    //                 .as_ptr(),
-    //         );
-    //     }
-    // }
-
+    
     // A workaround for https://github.com/ContinuumIO/anaconda-issues/issues/11439
     // by https://github.com/cgranade
 
@@ -88,7 +73,7 @@ pub fn exec_py(
     ]
     .into_py_dict(py);
 
-    let result = py.run(content, None, Some(&locals));
+    let result = py.run(content, None, Some(locals));
 
     // print Python errors only, stay quiet when Ok(())
     if let Err(ref err) = result {
@@ -113,19 +98,7 @@ pub fn exec_py(
     stdout: &mut StandardStream,
     to_file: bool,
 ) -> PyResult<(bool, String)> {
-    // if there is `CONDA_PREFIX`, set PYTHONHOME to the same thing.
-    // related issue: https://github.com/ContinuumIO/anaconda-issues/issues/11439
-    // this is potentially unsafe and not tested, so it should be avoided if the issue gets resolved
-    // if let Some(python_home) = std::env::var_os("CONDA_PREFIX") {
-    //     unsafe {
-    //         ffi::Py_SetPythonHome(
-    //             WideCString::from_str(python_home.to_str().unwrap())
-    //                 .unwrap()
-    //                 .as_ptr() as *const i32,
-    //         );
-    //     }
-    // }
-
+    
     // A workaround for https://github.com/ContinuumIO/anaconda-issues/issues/11439
     // by https://github.com/cgranade
 

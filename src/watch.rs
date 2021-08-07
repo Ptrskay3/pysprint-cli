@@ -49,7 +49,7 @@ pub fn watch<P: AsRef<Path> + Copy>(
                                     .load_options
                                     .extensions
                                     .clone()
-                                    .to_comparable()
+                                    .into_comparable()
                                     .contains(&value.to_str().unwrap().to_owned())
                                 {
                                     // clear terminal on rerun
@@ -60,10 +60,10 @@ pub fn watch<P: AsRef<Path> + Copy>(
 
                                     // render the code that needs to be executed
                                     let code = render_generic_template(
-                                        &e.file_name().unwrap().to_str().unwrap(),
+                                        e.file_name().unwrap().to_str().unwrap(),
                                         fpath,
                                         &config,
-                                        &result_file,
+                                        result_file,
                                         verbosity,
                                         false,
                                         None,
@@ -73,7 +73,7 @@ pub fn watch<P: AsRef<Path> + Copy>(
                                     // write the generated code if needed
                                     if persist {
                                         let _ = write_tempfile_with_imports(
-                                            &e.file_stem().unwrap().to_str().unwrap(),
+                                            e.file_stem().unwrap().to_str().unwrap(),
                                             code.as_ref().unwrap(),
                                             fpath,
                                         );

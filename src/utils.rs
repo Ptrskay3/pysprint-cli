@@ -38,7 +38,7 @@ pub fn get_startup_options(
                 config_filepath
             );
             let _ = WriteColor::reset(stdout);
-            maybe_write_default_yaml(&filepath);
+            maybe_write_default_yaml(filepath);
         }
 
         let result_file = matches.value_of("result").unwrap_or("results.json");
@@ -59,7 +59,7 @@ pub fn get_startup_options(
             }
             create_results_file(&result_filepath.into_os_string().to_str().unwrap()).unwrap();
         } else if !result_file_is_present(&result_filepath, stdout).unwrap_or(true) {
-            create_results_file(&result_filepath.into_os_string().to_str().unwrap()).unwrap();
+            create_results_file(result_filepath.into_os_string().to_str().unwrap()).unwrap();
         } else {
             let _ = writeln!(
                 stdout,
@@ -121,9 +121,9 @@ pub fn get_exclude_patterns(file_pattern_options: &LoadOptions) -> Vec<WildMatch
     for pattern in &file_pattern_options
         .exclude_patterns
         .clone()
-        .to_comparable()
+        .into_comparable()
     {
-        ep.push(WildMatch::new(&pattern));
+        ep.push(WildMatch::new(pattern));
     }
     ep
 }

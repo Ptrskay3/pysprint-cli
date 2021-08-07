@@ -114,7 +114,7 @@ pub enum StringSequence {
 }
 
 impl StringSequence {
-    pub fn to_comparable(self) -> Vec<String> {
+    pub fn into_comparable(self) -> Vec<String> {
         match self {
             StringSequence::String(single) => vec![single],
             StringSequence::Vector(vec) => vec,

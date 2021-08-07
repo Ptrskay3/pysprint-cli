@@ -13,9 +13,9 @@ pub fn create_results_file(filename: &str) -> std::io::Result<()> {
 pub fn get_files(root: &str, file_pattern_options: &LoadOptions) -> io::Result<Vec<PathBuf>> {
     let mut result = vec![];
 
-    let ext_as_str_ref = file_pattern_options.extensions.clone().to_comparable();
+    let ext_as_str_ref = file_pattern_options.extensions.clone().into_comparable();
 
-    let skips_as_str_ref = file_pattern_options.skip_files.clone().to_comparable();
+    let skips_as_str_ref = file_pattern_options.skip_files.clone().into_comparable();
 
     for path in fs::read_dir(root)? {
         let path = path?.path();
@@ -52,7 +52,7 @@ pub fn get_files(root: &str, file_pattern_options: &LoadOptions) -> io::Result<V
     result.retain(|path| {
         !exclude_patterns
             .iter()
-            .map(|pattern| pattern.matches(&path.to_str().unwrap()))
+            .map(|pattern| pattern.matches(path.to_str().unwrap()))
             .any(|op| op)
     });
 
