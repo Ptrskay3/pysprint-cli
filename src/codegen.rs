@@ -262,8 +262,10 @@ pub fn render_generic_template(
     TEMPLATES.render("pstemplate.py_t", &context)
 }
 
-fn write_default_yaml(path: &str) -> std::io::Result<()> {
-    let cfg_path = PathBuf::from(path).join("eval.yaml");
+pub fn write_default_yaml(path: &str) -> std::io::Result<()> {
+    let c_path = PathBuf::from(path);
+    std::fs::create_dir_all(c_path.clone())?;
+    let cfg_path = c_path.join("eval.yaml");
     std::fs::write(
         cfg_path,
         r#"load_options:

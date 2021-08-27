@@ -1,10 +1,12 @@
+use crate::codegen::write_default_yaml;
 use crate::statistics::summarize;
 use crate::{audit::audit, python::py_handshake, utils::get_startup_options, watch::watch};
 use clap::{
     crate_authors, crate_description, crate_version, App, AppSettings, Arg, ArgMatches, SubCommand,
 };
 use std::io::Write;
-use termcolor::{ColorChoice, StandardStream};
+use std::path::Path;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 pub fn launch() {
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
@@ -51,6 +53,23 @@ pub fn launch() {
     if let Some(matches) = matches.subcommand_matches("summarize") {
         let result_file = matches.value_of("result").unwrap_or("results.json");
         summarize(result_file);
+    }
+
+    if let Some(matches) = matches.subcommand_matches("init") {
+        let config_path = matches.value_of("path").unwrap_or(".");
+
+        let config_filepath = Path::new(&config_path);
+        if config_filepath.exists() {
+            let _ = stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)));
+            let _ = writeln!(
+                stdout,
+                "[WARN] File named {:?}\\eval.yaml already exist, overriding.",
+                config_filepath
+            );
+            let _ = WriteColor::reset(&mut stdout);
+        }
+
+        write_default_yaml(config_filepath.to_str().unwrap()).unwrap();
     }
 }
 
@@ -174,6 +193,19 @@ fn start_app_and_get_matches() -> ArgMatches<'static> {
                         .value_name("RESULT")
                         .help("the result file to summarize")
                         .takes_value(true),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("init")
+                .about("Write default configuration file")
+                .arg(
+                    Arg::with_name("path")
+                        .long("path")
+                        .value_name("PATH")
+                        .help("write default configuration file")
+                        .takes_value(true)
+                        .required(true)
+                        .index(1),
                 ),
         )
         .get_matches()
