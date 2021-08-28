@@ -28,13 +28,13 @@ lazy_static! {
 )
 
 {% if not no_comment_check %}
-SKIP_IF = ("ref", "sam", "reference", "sample", "noeval")
+SKIP_IF = ("ref", "sam", "reference", "sample", "noeval", "skip")
 
 for entry in SKIP_IF:
     try:
         if entry in ifg.meta['comment']:
             import sys
-            sys.exit(f"file skipped due to user comment contains `{entry}`.")
+            sys.exit(f"file skipped due to user comment contains `{entry}` To turn this off change load_options.no_comment_check to true.")
     except KeyError:
         pass
 {% endif %}
@@ -186,6 +186,7 @@ pub fn write_tempfile_with_imports(name: &str, content: &str, path: &str) -> std
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_spp_template(
     ifg_files: &[PathBuf],
     ref_files: &[PathBuf],
@@ -226,6 +227,7 @@ pub fn render_spp_template(
     TEMPLATES.render("spp.py_t", &context)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_generic_template(
     file: &str,
     path: &str,
@@ -255,20 +257,25 @@ pub fn render_generic_template(
     context.insert("workdir", &path);
     context.insert("is_audit", &is_audit);
 
-    // FIXME: this is redundant
+    // FIXME: this is redundant, we already have path and file
     context.insert("filename", &format!("{}/{}", path, file));
 
     // render as String
     TEMPLATES.render("pstemplate.py_t", &context)
 }
 
-pub fn write_default_yaml(path: &str) -> std::io::Result<()> {
+pub fn write_default_yaml_with_method(path: &str, method_str: &str) -> std::io::Result<()> {
     let c_path = PathBuf::from(path);
     std::fs::create_dir_all(c_path.clone())?;
     let cfg_path = c_path.join("eval.yaml");
+    let modulo = match method_str {
+        "spp" | "cff" | "mm" => "3",
+        _ => "-1",
+    };
     std::fs::write(
         cfg_path,
-        r#"load_options:
+        &format!(
+            r#"load_options:
   extensions:
     - "trt"
     - "txt"
@@ -280,7 +287,7 @@ pub fn write_default_yaml(path: &str) -> std::io::Result<()> {
   decimal: ","
   delimiter: ";"
   meta_len: 6
-  mod: 1
+  mod: {}
   no_comment_check: false
 preprocess:
   chdomain: true
@@ -288,7 +295,7 @@ preprocess:
   # slice_start: 2 # PHz
   # slice_stop: 4 # PHz
 method:
-  fft
+  {}
 method_details:
   heatmap: false
   windows: 200
@@ -302,18 +309,24 @@ method_details:
   both: false
   eager: false
   detach: true
-before_evaluate:
-  - print('before_evaluate')
+# before_evaluate:
+# - print('before_evaluate')
 evaluate:
   reference_frequency: 2.355
   order: 3
   only_phase: false
-after_evaluate:
-  - print('and after evaluate too..')
-"#
+# after_evaluate:
+#   - print('and after evaluate too..')
+"#,
+            modulo, method_str
+        )
         .as_bytes(),
     )?;
     Ok(())
+}
+
+pub fn write_default_yaml(path: &str) -> std::io::Result<()> {
+    write_default_yaml_with_method(path, "fft")
 }
 
 pub fn maybe_write_default_yaml(path: &str) {

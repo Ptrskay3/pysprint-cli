@@ -1,4 +1,4 @@
-use crate::codegen::write_default_yaml;
+use crate::codegen::write_default_yaml_with_method;
 use crate::statistics::summarize;
 use crate::{audit::audit, python::py_handshake, utils::get_startup_options, watch::watch};
 use clap::{
@@ -68,8 +68,10 @@ pub fn launch() {
             );
             let _ = WriteColor::reset(&mut stdout);
         }
-
-        write_default_yaml(config_filepath.to_str().unwrap()).unwrap();
+        let _ = write_default_yaml_with_method(
+            config_filepath.to_str().unwrap(),
+            matches.value_of("method").unwrap_or("fft"),
+        );
     }
 }
 
@@ -206,6 +208,14 @@ fn start_app_and_get_matches() -> ArgMatches<'static> {
                         .takes_value(true)
                         .required(true)
                         .index(1),
+                )
+                .arg(
+                    Arg::with_name("method")
+                        .long("method")
+                        .value_name("METHOD")
+                        .help("the default method to use")
+                        .takes_value(true)
+                        .possible_values(&["fft", "wft", "spp", "cff", "mm"]),
                 ),
         )
         .get_matches()

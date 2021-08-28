@@ -57,7 +57,7 @@ pub fn get_startup_options(
             ) {
                 println!("Error writing to stdout: {}", e);
             }
-            create_results_file(&result_filepath.into_os_string().to_str().unwrap()).unwrap();
+            create_results_file(result_filepath.into_os_string().to_str().unwrap()).unwrap();
         } else if !result_file_is_present(&result_filepath, stdout).unwrap_or(true) {
             create_results_file(result_filepath.into_os_string().to_str().unwrap()).unwrap();
         } else {
@@ -66,7 +66,7 @@ pub fn get_startup_options(
                 "[INFO] Type 'yes' or 'y' to override it, or anything else to quit.",
             );
             if maybe_override_results_file() {
-                create_results_file(&result_filepath.clone().into_os_string().to_str().unwrap())
+                create_results_file(result_filepath.clone().into_os_string().to_str().unwrap())
                     .unwrap();
                 let _ = writeln!(
                     stdout,
