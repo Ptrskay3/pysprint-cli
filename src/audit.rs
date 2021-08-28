@@ -21,8 +21,12 @@ pub fn audit(
     let config = parse(&format!("{}/{}", filepath, config_file)).unwrap();
 
     let _ = py_handshake(stdout);
-
     let files = get_files(filepath, &config.load_options).unwrap();
+    if let Ok(debug_flag) = std::env::var("PYSPRINT_DEBUG") {
+        if debug_flag == "1" {
+            println!("FILES: {:#?}", &files);
+        }
+    }
     let warn = config.method == MethodType::SPPMethod
         || config.method == MethodType::CosFitMethod
         || config.method == MethodType::MinMaxMethod;
