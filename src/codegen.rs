@@ -270,7 +270,7 @@ pub fn write_default_yaml_with_method(path: &str, method_str: &str) -> std::io::
     let cfg_path = c_path.join("eval.yaml");
     let modulo = match method_str {
         "spp" | "cff" | "mm" => "3",
-        _ => "-1",
+        _ => "1",
     };
     std::fs::write(
         cfg_path,
