@@ -20,7 +20,7 @@ pub fn audit(
     let mut traceback = String::new();
     let config = parse(&format!("{}/{}", filepath, config_file)).unwrap();
 
-    let _ = py_handshake(stdout);
+    py_handshake(stdout);
     let files = get_files(filepath, &config.load_options).unwrap();
     if let Ok(debug_flag) = std::env::var("PYSPRINT_DEBUG") {
         if debug_flag == "1" {

@@ -37,31 +37,26 @@ impl fmt::Display for DispersionCoeffitient {
         if self.is_omitted() {
             write!(f, ": omitted..")?;
             Ok(())
+        } else if self.coeff_type == CoeffitientType::GD {
+            write!(
+                f,
+                " ranging from {:.5} to {:.5} {} (might be inaccurate due to sign conversions)",
+                self.min(),
+                self.max(),
+                self.unit()
+            )?;
+            Ok(())
         } else {
-            match self.coeff_type {
-                CoeffitientType::GD => {
-                    write!(
-                        f,
-                        " ranging from {:.5} to {:.5} {} (might be inaccurate due to sign conversions)",
-                        self.min(),
-                        self.max(),
-                        self.unit()
-                    )?;
-                    Ok(())
-                }
-                _ => {
-                    write!(
-                        f,
-                        ": mean = {:>12.5} | std = {:>12.5} | min = {:>12.5} | max = {:>12.5}  {}",
-                        self.mean().unwrap_or(0.0),
-                        self.std_deviation().unwrap_or(0.0),
-                        self.min(),
-                        self.max(),
-                        self.unit()
-                    )?;
-                    Ok(())
-                }
-            }
+            write!(
+                f,
+                ": mean = {:>12.5} | std = {:>12.5} | min = {:>12.5} | max = {:>12.5}  {}",
+                self.mean().unwrap_or(0.0),
+                self.std_deviation().unwrap_or(0.0),
+                self.min(),
+                self.max(),
+                self.unit()
+            )?;
+            Ok(())
         }
     }
 }
@@ -123,7 +118,7 @@ impl Evaluated for DispersionCoeffitient {
 }
 
 impl DispersionCoeffitient {
-    pub fn empty_with_type(_type: CoeffitientType) -> Self {
+    pub const fn empty_with_type(_type: CoeffitientType) -> Self {
         Self {
             coeff_vec: Vec::<f64>::new(),
             coeff_type: _type,

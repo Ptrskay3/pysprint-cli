@@ -30,7 +30,7 @@ pub fn launch() {
         }
         let startup_options = get_startup_options(matches, &mut stdout).unwrap();
 
-        let _ = py_handshake(&mut stdout);
+        py_handshake(&mut stdout);
 
         if let Err(e) = writeln!(stdout, "[INFO] Watch started..") {
             println!("Error writing to stdout: {}", e);

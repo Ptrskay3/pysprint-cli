@@ -128,6 +128,7 @@ pub fn get_exclude_patterns(file_pattern_options: &LoadOptions) -> Vec<WildMatch
     ep
 }
 
+#[must_use]
 pub fn get_process_bar_with_length(l: u64) -> ProgressBar {
     let bar = ProgressBar::new(l);
     bar.set_style(
@@ -137,6 +138,7 @@ pub fn get_process_bar_with_length(l: u64) -> ProgressBar {
     bar
 }
 
+#[must_use]
 pub fn get_spinner() -> ProgressBar {
     let pb = ProgressBar::new_spinner();
     let spinner_style = ProgressStyle::default_spinner()
@@ -180,6 +182,7 @@ pub fn sort_by_arms(
     (ifgs, sams, refs)
 }
 
+#[must_use]
 pub fn maybe_override_results_file() -> bool {
     let mut input_text = String::new();
     std::io::stdin()

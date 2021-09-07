@@ -141,12 +141,12 @@ pub struct _Mod(pub i32);
 
 impl Default for _Mod {
     fn default() -> Self {
-        _Mod(1)
+        Self(1)
     }
 }
 
 impl PartialEq for _Mod {
-    fn eq(&self, other: &_Mod) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
@@ -157,7 +157,7 @@ fn input_unit_default() -> Option<String> {
     Some("nm".to_owned())
 }
 
-fn no_comment_check_default() -> Option<bool> {
+const fn no_comment_check_default() -> Option<bool> {
     Some(false)
 }
 
