@@ -6,22 +6,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
 
-/// Check if we're able to start a Python interpreter,
-/// and fail early if we can't.
-pub fn py_handshake(stdout: &mut StandardStream) {
-    let pb = get_spinner();
-
-    // A quick check whether Python is ready.
-    pb.set_message("Initializing Python..");
-    let _ = prepare_python();
-    pb.set_message("Python initialized, importing modules..");
-    if exec_py("True", stdout, false).is_err() {
-        panic!("Python interpreter crashed.. Do you have pysprint installed?")
-    }
-
-    pb.finish_and_clear();
-}
-
+/// Set the necessary environment variables for the Python interpreter
+/// and initialize it.
+/// Also takes account for Anaconda distribution.
 pub fn prepare_python() -> Result<(), pyo3::PyErr> {
     // Due to https://github.com/ContinuumIO/anaconda-issues/issues/11439,
     // we first need to set PYTHONHOME. To do so, we will look for whatever
@@ -58,6 +45,22 @@ pub fn prepare_python() -> Result<(), pyo3::PyErr> {
     pyo3::prepare_freethreaded_python();
 
     Ok(())
+}
+
+/// Check if we're able to start a Python interpreter,
+/// and fail early if we can't.
+pub fn py_handshake(stdout: &mut StandardStream) {
+    let pb = get_spinner();
+
+    // A quick check whether Python is ready.
+    pb.set_message("Initializing Python..");
+    let _ = prepare_python();
+    pb.set_message("Python initialized, importing modules..");
+    if exec_py("True", stdout, false).is_err() {
+        panic!("Python interpreter crashed.. Do you have pysprint installed?")
+    }
+
+    pb.finish_and_clear();
 }
 
 pub fn exec_py(

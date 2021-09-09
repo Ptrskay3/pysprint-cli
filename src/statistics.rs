@@ -180,6 +180,18 @@ fn read_results_from_file<P: AsRef<Path>>(path: P) -> Result<JsonMap, Box<dyn Er
     Ok(map)
 }
 
+/// Extract the results from the given deserialized map.
+macro_rules! extract_coeff {
+    ($name:tt, $v:ident) => {{
+        let coeff: f64 = match &$v[$name] {
+            Value::String(val) => val.parse::<f64>().unwrap(),
+            Value::Number(val) => val.as_f64().unwrap(),
+            _ => 0.0,
+        };
+        coeff
+    }};
+}
+
 pub fn summarize<P: AsRef<Path>>(path: P) {
     let map = read_results_from_file(path).unwrap();
 
@@ -192,47 +204,18 @@ pub fn summarize<P: AsRef<Path>>(path: P) {
     let mut method: &str = "";
 
     for v in map.values() {
-        let curr_gd: f64 = match &v["GD"] {
-            Value::String(val) => val.parse::<f64>().unwrap(),
-            Value::Number(val) => val.as_f64().unwrap(),
-            _ => 0.0,
-        };
+        let curr_gd = extract_coeff!("GD", v);
         gds.push(curr_gd);
-
-        let curr_gdd: f64 = match &v["GDD"] {
-            Value::String(val) => val.parse::<f64>().unwrap(),
-            Value::Number(val) => val.as_f64().unwrap(),
-            _ => 0.0,
-        };
+        let curr_gdd = extract_coeff!("GDD", v);
         gdds.push(curr_gdd);
-
-        let curr_tods: f64 = match &v["TOD"] {
-            Value::String(val) => val.parse::<f64>().unwrap(),
-            Value::Number(val) => val.as_f64().unwrap(),
-            _ => 0.0,
-        };
-        tods.push(curr_tods);
-
-        let curr_fods: f64 = match &v["FOD"] {
-            Value::String(val) => val.parse::<f64>().unwrap(),
-            Value::Number(val) => val.as_f64().unwrap(),
-            _ => 0.0,
-        };
-        fods.push(curr_fods);
-
-        let curr_qods: f64 = match &v["QOD"] {
-            Value::String(val) => val.parse::<f64>().unwrap(),
-            Value::Number(val) => val.as_f64().unwrap(),
-            _ => 0.0,
-        };
-        qods.push(curr_qods);
-
-        let curr_sods: f64 = match &v["SOD"] {
-            Value::String(val) => val.parse::<f64>().unwrap(),
-            Value::Number(val) => val.as_f64().unwrap(),
-            _ => 0.0,
-        };
-        sods.push(curr_sods);
+        let curr_tod = extract_coeff!("TOD", v);
+        tods.push(curr_tod);
+        let curr_fod = extract_coeff!("FOD", v);
+        fods.push(curr_fod);
+        let curr_qod = extract_coeff!("QOD", v);
+        qods.push(curr_qod);
+        let curr_sod = extract_coeff!("SOD", v);
+        sods.push(curr_sod);
         method = v["method"].as_str().unwrap_or("unknown");
     }
     println!("{} entries found.", gds.len());
