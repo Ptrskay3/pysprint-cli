@@ -10,9 +10,17 @@ use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
 /// and initialize it.
 /// Also takes account for Anaconda distribution.
 pub fn prepare_python() -> Result<(), pyo3::PyErr> {
+    // If we're already initialized, just return.
+    unsafe {
+        if pyo3::ffi::Py_IsInitialized() == 0 {
+            return Ok(());
+        }
+    }
+
     // Due to https://github.com/ContinuumIO/anaconda-issues/issues/11439,
     // we first need to set PYTHONHOME. To do so, we will look for whatever
     // directory on PATH currently has python.exe.
+
     let python_exe = which::which("python").expect("Python was not found on PATH.");
     let python_home = python_exe.parent().unwrap();
 
